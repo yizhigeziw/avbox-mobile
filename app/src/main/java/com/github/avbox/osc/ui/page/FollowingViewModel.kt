@@ -51,6 +51,8 @@ internal class FollowingViewModel(
     val episodeTotals = _episodeTotals.asStateFlow()
     private val _calendar = MutableStateFlow<Map<Int, FollowCalendar>>(emptyMap())
     val calendar = _calendar.asStateFlow()
+    private val _calendarStatus = MutableStateFlow("")
+    val calendarStatus = _calendarStatus.asStateFlow()
     private val _playedPercents = MutableStateFlow<Map<String, Int>>(emptyMap())
     val playedPercents = _playedPercents.asStateFlow()
     private val _today = MutableStateFlow(FollowDays.todayIndex())
@@ -138,6 +140,11 @@ internal class FollowingViewModel(
                 cal?.let { result[entry.follow.id] = it }
             }
             _calendar.value = result
+            _calendarStatus.value = if (!TmdbCalendar.isConfigured()) {
+                ""
+            } else {
+                "TMDB calendar " + result.size + "/" + list.size
+            }
         }
     }
 

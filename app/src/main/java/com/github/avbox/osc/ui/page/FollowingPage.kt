@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.github.avbox.osc.R
+import com.github.avbox.osc.BuildConfig
 import com.github.avbox.osc.data.AppGraph
 import com.github.avbox.osc.data.EpisodeTotals
 import com.github.avbox.osc.data.PlaybackProgress
@@ -79,6 +80,7 @@ fun FollowingPage(
     val playedPercents by vm.playedPercents.collectAsStateWithLifecycle()
     val today by vm.today.collectAsStateWithLifecycle()
     val calendar by vm.calendar.collectAsStateWithLifecycle()
+    val calendarStatus by vm.calendarStatus.collectAsStateWithLifecycle()
 
     val listState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
@@ -140,6 +142,16 @@ fun FollowingPage(
         },
     ) { topPad, _ ->
         Column(modifier = Modifier.fillMaxSize()) {
+            if (BuildConfig.DEBUG && calendarStatus.isNotEmpty()) {
+                Text(
+                    text = calendarStatus,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp + navStart, end = 16.dp, top = topPad + 4.dp),
+                )
+            }
             if (items.isNotEmpty()) {
                 WeekdayFilterBar(
                     topPad = topPad,
