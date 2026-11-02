@@ -1,6 +1,7 @@
 package com.github.avbox.osc.ui.page
 
 import com.github.avbox.osc.api.AppBootstrap
+import com.github.avbox.osc.api.TmdbCalendar
 import com.github.avbox.osc.api.TmdbPoster
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -117,17 +118,24 @@ internal class FollowingViewModel(
         calendarJob?.cancel()
         calendarJob = viewModelScope.launch(Dispatchers.IO) {
             val result = HashMap<Int, FollowCalendar>()
+            AppLog.i("echo-follow refresh count=${list.size} tmdb=${TmdbCalendar.isConfigured()}")
             for (entry in list) {
                 val name = entry.follow.name?.takeIf { it.isNotBlank() } ?: entry.history?.name
                 if (name.isNullOrBlank()) continue
                 val year = entry.history?.year ?: 0
                 val detail = try {
-                    TmdbPoster.resolveDetail(name, year)
+                    TmdbCalendar.resolve(name, year)
                 } catch (e: Exception) {
                     AppLog.e("FollowingViewModel", e)
                     null
                 }
-                FollowCalendar.from(detail)?.let { result[entry.follow.id] = it }
+                val cal = FollowCalendar.from(detail)
+                AppLog.i(
+                    "echo-follow cal name=$name year=$year " +
+                        "detail=${detail != null} " +
+                        (if (cal != null) "wd=${cal.weekday} next=${cal.airDate} ended=${cal.ended}" else "cal=none"),
+                )
+                cal?.let { result[entry.follow.id] = it }
             }
             _calendar.value = result
         }

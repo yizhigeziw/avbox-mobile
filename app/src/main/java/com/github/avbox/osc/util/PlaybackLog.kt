@@ -16,6 +16,8 @@ object PlaybackLog {
         "echo-preload",
         "echo-exo-codec",
         "echo-switch",
+        "echo-follow",
+        "echo-tmdb",
     )
 
     @JvmStatic
