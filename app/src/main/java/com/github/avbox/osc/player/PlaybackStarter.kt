@@ -269,6 +269,7 @@ class PlaybackStarter(private val host: Host) {
     }
 
     fun playUrl(url: String, headers: HashMap<String, String>?) {
+        PlaybackTiming.mark("resolve-done")
         host.syncDecodeFromGlobal()
         val target = attachProxySiteKey(url)
         Preconnect.warm(target, headers)

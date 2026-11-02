@@ -1120,6 +1120,7 @@ class PlaybackController {
     })
 
     fun play(reset: Boolean) {
+        PlaybackTiming.start("click")
         clearCastAbort()
         starter.play(reset)
     }

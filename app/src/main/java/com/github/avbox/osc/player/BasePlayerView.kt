@@ -149,11 +149,17 @@ open class BasePlayerView @JvmOverloads constructor(
             return true
         }
         val seq = ++startPlaySeq
+        applyStartPosition(key, null)
+        val zeroStart = playbackPosition == 0L
+        startPrepare(false)
         scope.launch {
             val saved = sink.getSavedProgress(key)
             if (seq != startPlaySeq) return@launch
-            applyStartPosition(key, saved)
-            startPrepare(false)
+            if (zeroStart) return@launch
+            if (saved == null || saved <= 0) return@launch
+            if (saved == playbackPosition) return@launch
+            playbackPosition = saved
+            kernelPlayer?.seekTo(saved)
         }
         return true
     }
@@ -237,6 +243,7 @@ open class BasePlayerView @JvmOverloads constructor(
         if (prepareDataSource()) {
             kernelPlayer?.let { player ->
                 player.setStartPosition(playbackPosition)
+                PlaybackTiming.mark("prepare")
                 player.prepareAsync()
             }
             reportPlayState()
@@ -375,6 +382,7 @@ open class BasePlayerView @JvmOverloads constructor(
                 KernelPlayer.MEDIA_INFO_BUFFERING_END -> reportPlayState()
 
                 KernelPlayer.MEDIA_INFO_RENDERING_START -> {
+                    PlaybackTiming.mark("first-frame")
                     reportPlayState()
                     if (kernelPlayer?.playState == PlayState.PLAYING) {
                         playerFrame.keepScreenOn = true
