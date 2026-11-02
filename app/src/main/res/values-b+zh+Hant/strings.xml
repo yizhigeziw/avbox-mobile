@@ -639,7 +639,7 @@
     <string name="common_copy">複製</string>
     <string name="toast_log_copied">已複製到剪貼簿</string>
     <string name="settings_playback_log_empty">暫無日誌，請先播放一次</string>
-    <string name="following_tmdb_today">今天更新 %1</string>
-    <string name="following_tmdb_next">下集 %1</string>
+    <string name="following_tmdb_today">今天更新 %1$s</string>
+    <string name="following_tmdb_next">下集 %1$s</string>
     <string name="following_tmdb_ended">已完結</string>
 </resources>
