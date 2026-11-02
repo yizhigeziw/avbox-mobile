@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Base64
 
 plugins {
     alias(libs.plugins.android.application)
@@ -53,7 +54,7 @@ android {
         val storeFileResolved = if (keystoreBase64 != null) {
             val out = layout.buildDirectory.file("keystore/release.jks").get().asFile
             out.parentFile.mkdirs()
-            out.writeBytes(java.util.Base64.getDecoder().decode(keystoreBase64))
+            out.writeBytes(Base64.getDecoder().decode(keystoreBase64))
             out
         } else {
             rootProject.file(secret("RELEASE_STORE_FILE") ?: ".key/app-release.jks")
