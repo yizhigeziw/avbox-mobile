@@ -83,11 +83,14 @@ class RemoteServer(port: Int, context: Context) : NanoHTTPD(port) {
             val mime = rs[1] as String
             val body = if (rs[2] != null) rs[2] as InputStream else null
             val probe = if (body != null) PushbackInputStream(body, 1) else null
+            val firstByteAt = android.os.SystemClock.elapsedRealtime()
             val firstByte = try {
                 probe?.read() ?: -1
             } catch (th: Throwable) {
                 -1
             }
+            val firstByteCost = android.os.SystemClock.elapsedRealtime() - firstByteAt
+            AppLog.i("echo-timing proxy-first-byte " + firstByteCost + "ms")
             val m3u8 = ProxyResponsePolicy.isM3u8Mime(mime)
             val status = ProxyResponsePolicy.effectiveStatus(code, mime, firstByte)
             if (status != code) {
@@ -275,8 +278,15 @@ class RemoteServer(port: Int, context: Context) : NanoHTTPD(port) {
             return getProxy(rs, params["url"])
         }
         if (params.containsKey("go")) {
+            val startAt = android.os.SystemClock.elapsedRealtime()
+            val range = params["range"] ?: params["Range"] ?: "-"
+            AppLog.i("echo-timing proxy-request type=" + params["type"] + " range=" + range)
+            AppLog.i("echo-timing proxy-url " + params["url"])
             val rs = StreamProxy.proxy(params)
-            return getProxy(rs, params["url"])
+            AppLog.i("echo-timing proxy-upstream " + (android.os.SystemClock.elapsedRealtime() - startAt) + "ms")
+            val response = getProxy(rs, params["url"])
+            AppLog.i("echo-timing proxy-head " + (android.os.SystemClock.elapsedRealtime() - startAt) + "ms")
+            return response
         }
         return getProxy(null, null)
     }
