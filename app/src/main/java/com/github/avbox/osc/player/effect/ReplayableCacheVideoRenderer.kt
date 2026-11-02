@@ -46,8 +46,9 @@ class ReplayableCacheVideoRenderer(
         val kind = DecodeKindRule.videoKindOf(name, info.softwareOnly)
         videoCodecObserver?.onCodecInitialized(name, kind)
         AppLog.i(
-            "echo-exo-codec-init: name=$name kind=$kind hw=${info.hardwareAccelerated}" +
-                " swOnly=${info.softwareOnly} preferSoft=${CodecPreferences.preferSoftwareDecode}",
+            "echo-timing codec-init ${initializationDurationMs}ms name=$name kind=$kind" +
+                " hw=${info.hardwareAccelerated} swOnly=${info.softwareOnly}" +
+                " preferSoft=${CodecPreferences.preferSoftwareDecode}",
         )
     }
 

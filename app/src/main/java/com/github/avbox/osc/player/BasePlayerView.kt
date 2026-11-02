@@ -382,7 +382,7 @@ open class BasePlayerView @JvmOverloads constructor(
                 KernelPlayer.MEDIA_INFO_BUFFERING_END -> reportPlayState()
 
                 KernelPlayer.MEDIA_INFO_RENDERING_START -> {
-                    PlaybackTiming.mark("first-frame")
+                    PlaybackTiming.mark("state-ready")
                     reportPlayState()
                     if (kernelPlayer?.playState == PlayState.PLAYING) {
                         playerFrame.keepScreenOn = true

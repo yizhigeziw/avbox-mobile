@@ -34,6 +34,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.exoplayer.util.EventLogger
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener
+import com.github.avbox.osc.player.PlaybackTiming
 import com.github.avbox.osc.player.core.EffectCanvas
 import com.github.avbox.osc.player.core.PlayerDecodeKind
 import com.github.avbox.osc.player.core.RedrawPolicy
@@ -69,6 +70,7 @@ data class PlayerEngineConfig(
 ) {
     companion object {
         const val DEFAULT_BUFFER_TIMES = 3
+        const val FIRST_FRAME_BUFFER_MS = 1200
     }
 }
 
@@ -247,6 +249,10 @@ class PlayerEngine(
             droppedFramesTotal += droppedFrames
         }
 
+        override fun onRenderedFirstFrame(eventTime: AnalyticsListener.EventTime, output: Any, renderTimeMs: Long) {
+            PlaybackTiming.markOnce("rendered-first-frame", "rff")
+        }
+
         override fun onPlaybackStateChanged(eventTime: AnalyticsListener.EventTime, playbackState: Int) {
             if (playbackState == Player.STATE_READY) {
                 playbackStarted = true
@@ -289,11 +295,11 @@ class PlayerEngine(
             .setBufferDurationsMs(
                 DefaultLoadControl.DEFAULT_MIN_BUFFER_MS * bufferTimes,
                 DefaultLoadControl.DEFAULT_MAX_BUFFER_MS * bufferTimes,
-                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
+                FIRST_FRAME_BUFFER_MS,
                 DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
             )
             .build()
-        AppLog.i("echo-exo-low-memory-load-control")
+        AppLog.i("echo-exo-low-memory-load-control first-frame-buffer=" + FIRST_FRAME_BUFFER_MS + "ms")
 
         val builder = ExoPlayer.Builder(
             appContext,
