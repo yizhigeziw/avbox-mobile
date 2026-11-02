@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -300,10 +302,12 @@ fun SettingsPage(
                             onDismissRequest = { showLogDialog = false },
                             title = { Text(stringResource(R.string.settings_playback_log)) },
                             text = {
-                                Text(
-                                    if (logText.isEmpty()) stringResource(R.string.settings_playback_log_empty) else logText,
-                                    fontFamily = FontFamily.Monospace,
-                                )
+                                Box(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
+                                    Text(
+                                        if (logText.isEmpty()) stringResource(R.string.settings_playback_log_empty) else logText,
+                                        fontFamily = FontFamily.Monospace,
+                                    )
+                                }
                             },
                             dismissButton = {
                                 TextButton(onClick = {
