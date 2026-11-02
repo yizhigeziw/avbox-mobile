@@ -6,6 +6,7 @@ import android.text.TextUtils
 import com.github.catvod.crawler.SpiderReaper
 import com.github.avbox.osc.api.ApiConfig
 import com.github.avbox.osc.bean.SourceBean
+import com.github.avbox.osc.player.PlaybackTiming
 import com.github.avbox.osc.util.BoundedCall
 import com.github.avbox.osc.util.DefaultConfig
 import com.github.avbox.osc.util.AppLog
@@ -64,10 +65,12 @@ class PlayLoader(
         val requestSeq = seqHolder.incrementAndGet()
         if (Looper.myLooper() === Looper.getMainLooper()) {
             SourceHelper.PREPARE_POOL.execute {
+                PlaybackTiming.markOnce("pool-start", "pool")
                 playPrepared(seqHolder, resultChannel, requestSeq, chain, sourceKey, playFlag, progressKey, url, subtitleKey)
             }
             return
         }
+        PlaybackTiming.markOnce("pool-start", "pool")
         playPrepared(seqHolder, resultChannel, requestSeq, chain, sourceKey, playFlag, progressKey, url, subtitleKey)
     }
 
@@ -120,7 +123,9 @@ class PlayLoader(
         pushUrl: PushUrlParser.PushUrl,
     ) {
         SourceHelper.SPIDER_POOL.execute {
+            PlaybackTiming.markOnce("spider-pool-start", "spider-pool")
             val json = BoundedCall.call(Callable<String> {
+                PlaybackTiming.markOnce("spider-call-start", "spider-call")
                 val sp = ApiConfig.get().getCSP(sourceBean)
                 if (TextUtils.isEmpty(requestUrl)) return@Callable ""
                 try {
@@ -358,6 +363,7 @@ class PlayLoader(
 
     private fun postPlayResult(seqHolder: AtomicInteger, resultChannel: SourceChannel<JSONObject?>, requestSeq: Int, result: JSONObject?) {
         mainHandler.post {
+            PlaybackTiming.markOnce("result-posted", "result-posted")
             if (isStaleResult(requestSeq, seqHolder)) {
                 AppLog.i("echo--getPlay--ignore stale result")
                 return@post

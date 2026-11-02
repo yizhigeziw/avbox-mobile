@@ -178,7 +178,6 @@ class PlaybackStarter(private val host: Host) {
             } else if (kernelPresent) {
                 host.view()?.releasePlayer()
             }
-            ImgUtil.clearMemoryCache()
         }
         host.setSubtitleCacheKey(
             vod.sourceKey + "-" + vod.id + "-" + vod.playFlag + "-"
@@ -237,6 +236,7 @@ class PlaybackStarter(private val host: Host) {
         if (svm != null) {
             svm.getPlay(host.sourceKey(), vod.playFlag, host.progressKey(), vs.url, host.subtitleCacheKey())
         }
+        if (!prepareOnly) ImgUtil.clearMemoryCache()
     }
 
     private fun isIdleKernelReusable(kernelPresent: Boolean): Boolean {
