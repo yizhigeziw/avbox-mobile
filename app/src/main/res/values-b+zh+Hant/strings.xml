@@ -634,4 +634,9 @@
     <string name="osd_tunnel">隧道</string>
     <string name="osd_preload">預載</string>
     <string name="osd_cache">快取</string>
+    <string name="settings_playback_log">播放日誌</string>
+    <string name="settings_playback_log_subtitle">查看最近一次起播各階段耗時</string>
+    <string name="common_copy">複製</string>
+    <string name="toast_log_copied">已複製到剪貼簿</string>
+    <string name="settings_playback_log_empty">暫無日誌，請先播放一次</string>
 </resources>

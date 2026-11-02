@@ -634,4 +634,9 @@
     <string name="osd_tunnel">Tunnel</string>
     <string name="osd_preload">Preload</string>
     <string name="osd_cache">Cache</string>
+    <string name="settings_playback_log">Playback Log</string>
+    <string name="settings_playback_log_subtitle">Review timing of the last playback start</string>
+    <string name="common_copy">Copy</string>
+    <string name="toast_log_copied">Copied to clipboard</string>
+    <string name="settings_playback_log_empty">No log yet. Play something first.</string>
 </resources>

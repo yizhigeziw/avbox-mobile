@@ -2,6 +2,8 @@
 
 package com.github.avbox.osc.ui.page
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -34,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
@@ -59,6 +62,7 @@ import com.github.avbox.osc.ui.components.SettingsRow
 import com.github.avbox.osc.ui.settings.UiSettingsState
 import com.github.avbox.osc.util.DefaultConfig
 import com.github.avbox.osc.util.HistoryHelper
+import com.github.avbox.osc.util.PlaybackLog
 import com.github.avbox.osc.util.SearchSettingsState
 import com.github.avbox.osc.util.SpiderStorageNotice
 import com.github.avbox.osc.api.TmdbPoster
@@ -283,6 +287,40 @@ fun SettingsPage(
                 }
                 SettingsCard(SettingsCardPosition.LAST) {
                     val uiConfig = UiSettingsState.config
+                    var showLogDialog by rememberSaveable { mutableStateOf(false) }
+                    SettingsRow(
+                        title = stringResource(R.string.settings_playback_log),
+                        subtitle = stringResource(R.string.settings_playback_log_subtitle),
+                        iconRes = R.drawable.ic_file_choose,
+                        onClick = { showLogDialog = true },
+                    )
+                    if (showLogDialog) {
+                        val logText = remember { PlaybackLog.readTiming() }
+                        AVBoxAlertDialog(
+                            onDismissRequest = { showLogDialog = false },
+                            title = { Text(stringResource(R.string.settings_playback_log)) },
+                            text = {
+                                Text(
+                                    if (logText.isEmpty()) stringResource(R.string.settings_playback_log_empty) else logText,
+                                    fontFamily = FontFamily.Monospace,
+                                )
+                            },
+                            dismissButton = {
+                                TextButton(onClick = {
+                                    val clipboard = context.getSystemService(ClipboardManager::class.java)
+                                    clipboard?.setPrimaryClip(ClipData.newPlainText("playback-log", logText))
+                                    Toast.makeText(context, context.getString(R.string.toast_log_copied), Toast.LENGTH_SHORT).show()
+                                }) {
+                                    Text(stringResource(R.string.common_copy))
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { showLogDialog = false }) {
+                                    Text(stringResource(R.string.common_confirm))
+                                }
+                            },
+                        )
+                    }
                     SettingsOptionMenuRow(
                         title = "DOH",
                         subtitle = stringResource(R.string.settings_doh_subtitle),
