@@ -28,6 +28,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector
+import androidx.media3.exoplayer.source.LoadEventInfo
+import androidx.media3.exoplayer.source.MediaLoadData
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -262,12 +264,22 @@ class PlayerEngine(
             }
         }
 
-        override fun onLoadStarted(eventTime: AnalyticsListener.EventTime, loadEventInfo: AnalyticsListener.LoadEventInfo, mediaLoadData: AnalyticsListener.MediaLoadData) {
-            PlaybackTiming.markOnce("load-start-" + mediaLoadData.dataType, "load-start-" + mediaLoadData.dataType)
+        override fun onLoadStarted(
+            eventTime: AnalyticsListener.EventTime,
+            loadEventInfo: LoadEventInfo,
+            mediaLoadData: MediaLoadData,
+        ) {
+            val kind = "load-start-${mediaLoadData.dataType}"
+            PlaybackTiming.markOnce(kind, kind)
         }
 
-        override fun onLoadCompleted(eventTime: AnalyticsListener.EventTime, loadEventInfo: AnalyticsListener.LoadEventInfo, mediaLoadData: AnalyticsListener.MediaLoadData) {
-            PlaybackTiming.markOnce("load-done-" + mediaLoadData.dataType, "load-done-" + mediaLoadData.dataType)
+        override fun onLoadCompleted(
+            eventTime: AnalyticsListener.EventTime,
+            loadEventInfo: LoadEventInfo,
+            mediaLoadData: MediaLoadData,
+        ) {
+            val kind = "load-done-${mediaLoadData.dataType}"
+            PlaybackTiming.markOnce(kind, kind)
         }
     }
 
@@ -670,7 +682,7 @@ class PlayerEngine(
         }
         val surface = holder.surface
         if (surface == null || !surface.isValid) {
-            // 缂堝銆?鐎瑰じ瀵岀粣妤€褰涢崚鍥ㄥ床閺?surface 閸欘垵鍏樺鏌ユ敘濮ｄ緤绱板銈嗘韫囧懘銆忓〒鍛敄鏉堟挸鍤敍灞芥儊閸掓瑨袙閻礁娅掓导姘辩拨鐎规艾鍑￠柌濠冩杹閻?surface閵?
+            // 缂傚牆顭烽妴?閻庣懓銇樼€靛瞼绮ｅΔ鈧ぐ娑㈠礆閸ャ劌搴婇柡?surface 闁告瑯鍨甸崗妯侯啅閺屻儲鏁樻慨锝勭筏缁辨澘顫㈤妶鍡橆槯闊洤鎳橀妴蹇撱€掗崨顖楁晞閺夊牊鎸搁崵顓㈡晬鐏炶姤鍎婇柛鎺撶懆琚欓柣顔荤濞呮帗瀵煎杈╂嫧閻庤鑹鹃崙锟犳煂婵犲啯鏉归柣?surface闁?
             setVideoSurface(null)
             return
         }
