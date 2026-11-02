@@ -4,6 +4,7 @@ import com.github.avbox.osc.bean.TmdbCastMember
 import com.github.avbox.osc.bean.TmdbDetail
 import com.github.avbox.osc.bean.TmdbEpisode
 import com.github.avbox.osc.bean.TmdbEpisodeRef
+import com.github.avbox.osc.bean.TmdbNextEpisode
 import com.github.avbox.osc.bean.TmdbPerson
 import com.github.avbox.osc.bean.TmdbSearchHit
 import com.github.avbox.osc.bean.TmdbSeason
@@ -49,6 +50,7 @@ object TmdbApi {
     private const val EPISODES_KEY = "episodes"
     private const val SEASON_NUMBER_FIELD = "season_number"
     private const val EPISODE_COUNT_FIELD = "episode_count"
+    private const val NEXT_EPISODE_KEY = "next_episode_to_air"
     private const val ALTERNATIVE_TITLES_PATH = "alternative_titles"
     private const val ALT_TITLES_KEY_MOVIE = "titles"
     private const val ALT_TITLES_KEY_TV = "results"
@@ -288,6 +290,24 @@ object TmdbApi {
                 val number = item.intOrNull(SEASON_NUMBER_FIELD) ?: return@mapNotNull null
                 TmdbSeason(number, item.intOrNull(EPISODE_COUNT_FIELD) ?: 0)
             }.orEmpty(),
+            tmdbId = root.intOrNull("id") ?: 0,
+            status = root.stringOrNull("status"),
+            nextEpisode = parseNextEpisode(root),
+        )
+    }
+
+    private fun parseNextEpisode(root: JsonObject): TmdbNextEpisode? {
+        val item = root.get(NEXT_EPISODE_KEY)?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+        val airDate = item.stringOrNull("air_date").orEmpty()
+        val season = item.intOrNull(SEASON_NUMBER_FIELD) ?: 0
+        val episode = item.intOrNull("episode_number") ?: 0
+        if (airDate.isEmpty() && season <= 0 && episode <= 0) return null
+        return TmdbNextEpisode(
+            airDate = airDate,
+            seasonNumber = season,
+            episodeNumber = episode,
+            name = item.stringOrNull("name").orEmpty(),
+            overview = item.stringOrNull("overview").orEmpty(),
         )
     }
 

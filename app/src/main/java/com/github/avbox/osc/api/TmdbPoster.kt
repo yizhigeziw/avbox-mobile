@@ -29,7 +29,7 @@ object TmdbPoster {
     private const val HITS_CACHE_PREFIX = "cache_tmdb_hits_"
     private const val IMAGES_CACHE_PREFIX = "cache_tmdb_images_"
     private const val LOGOS_CACHE_PREFIX = "cache_tmdb_logos_"
-    private const val DETAIL_CACHE_PREFIX = "cache_tmdb_detail2_"
+    private const val DETAIL_CACHE_PREFIX = "cache_tmdb_detail3_"
     private const val EPISODES_CACHE_PREFIX = "cache_tmdb_episodes2_"
     private const val SEASON_CACHE_PREFIX = "cache_tmdb_season_"
     private const val STILLS_CACHE_PREFIX = "cache_tmdb_stills_"

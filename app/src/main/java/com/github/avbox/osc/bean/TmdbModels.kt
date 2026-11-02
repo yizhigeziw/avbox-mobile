@@ -19,12 +19,23 @@ data class TmdbCastMember(
     val profilePath: String,
 )
 
+data class TmdbNextEpisode(
+    val airDate: String = "",
+    val seasonNumber: Int = 0,
+    val episodeNumber: Int = 0,
+    val name: String = "",
+    val overview: String = "",
+)
+
 data class TmdbDetail(
     val overview: String,
     val rating: Double,
     val genres: List<String>,
     val cast: List<TmdbCastMember>,
     val seasons: List<TmdbSeason>,
+    val tmdbId: Int = 0,
+    val status: String? = null,
+    val nextEpisode: TmdbNextEpisode? = null,
 )
 
 data class TmdbSeason(

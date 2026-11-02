@@ -639,4 +639,7 @@
     <string name="common_copy">Copy</string>
     <string name="toast_log_copied">Copied to clipboard</string>
     <string name="settings_playback_log_empty">No log yet. Play something first.</string>
+    <string name="following_tmdb_today">Updates today %1</string>
+    <string name="following_tmdb_next">Next %1</string>
+    <string name="following_tmdb_ended">Ended</string>
 </resources>

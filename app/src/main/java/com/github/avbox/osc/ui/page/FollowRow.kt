@@ -79,13 +79,15 @@ internal fun FollowRow(
     selected: Boolean,
     selectedDay: Int?,
     today: Int,
+    calendar: FollowCalendar? = null,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onWatchedChange: (Boolean) -> Unit,
 ) {
     var progressEntered by rememberSaveable { mutableStateOf(false) }
-    val days = FollowDays.decode(follow.updateDays)
+    val weekday = calendar?.weekday ?: -1
+    val days = if (weekday in 0..6) setOf(weekday) else FollowDays.decode(follow.updateDays)
     val daysText = if (days.isEmpty()) {
         ""
     } else {
@@ -97,7 +99,21 @@ internal fun FollowRow(
     }
     val hourText = formatReminderTime(follow.updateHour)
     val scopedDay = selectedDay?.takeIf { it in days }
-    val scheduleText = when {
+    val calendarText = when {
+        calendar == null -> null
+        calendar.ended -> stringResource(R.string.following_tmdb_ended)
+        calendar.hasNext -> {
+            val ep = calendar.episodeLabel
+            if (calendar.isToday()) {
+                stringResource(R.string.following_tmdb_today, ep)
+            } else {
+                val date = if (calendar.airDate.length >= 10) calendar.airDate.substring(5) else calendar.airDate
+                stringResource(R.string.following_tmdb_next, (date + " " + ep).trim())
+            }
+        }
+        else -> null
+    }
+    val scheduleText = calendarText ?: when {
         days.isEmpty() -> stringResource(R.string.following_no_schedule)
         scopedDay == today -> stringResource(R.string.following_update_today_time, hourText)
         scopedDay != null -> stringResource(
@@ -196,7 +212,7 @@ internal fun FollowRow(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                if (days.isNotEmpty() && scopedDay == null) {
+                if (days.isNotEmpty() && scopedDay == null && calendar?.hasNext != true) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Spacer(modifier = Modifier.width(ScheduleTextIndent))
                         Text(

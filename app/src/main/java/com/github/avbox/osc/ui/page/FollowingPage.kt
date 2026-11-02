@@ -78,13 +78,14 @@ fun FollowingPage(
     val episodeTotals by vm.episodeTotals.collectAsStateWithLifecycle()
     val playedPercents by vm.playedPercents.collectAsStateWithLifecycle()
     val today by vm.today.collectAsStateWithLifecycle()
+    val calendar by vm.calendar.collectAsStateWithLifecycle()
 
     val listState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
     var deleteDialog by remember { mutableStateOf(false) }
 
     val follows = remember(items) { items.map { it.follow } }
-    val visible = remember(items, selectedDay) { FollowListRules.visible(items, selectedDay) }
+    val visible = remember(items, selectedDay, calendar) { FollowListRules.visible(items, selectedDay, calendar) }
     val dayLabels = WeekdayRes.map { stringResource(it) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refresh() }
@@ -146,6 +147,7 @@ fun FollowingPage(
                     items = items,
                     today = today,
                     selectedDay = selectedDay,
+                    calendar = calendar,
                     onSelectDay = { vm.selectDay(it) },
                 )
                 val currentDay = selectedDay
@@ -217,11 +219,12 @@ fun FollowingPage(
                                     history = entry.history,
                                     totalEpisodes = episodeTotals[EpisodeTotals.key(follow.sourceKey, follow.vodId)],
                                     playedPercent = playedPercents[PlaybackProgress.key(follow.sourceKey, follow.vodId)],
-                                    watched = FollowListRules.isWatched(entry, selectedDay),
+                                    watched = FollowListRules.isWatched(entry, selectedDay, calendar),
                                     editMode = editMode,
                                     selected = follow.id in selected,
                                     selectedDay = selectedDay,
                                     today = today,
+                                    calendar = calendar[follow.id],
                                     modifier = Modifier.animateItem(
                                         fadeInSpec = spring(stiffness = Spring.StiffnessMediumLow),
                                         placementSpec = spring(stiffness = Spring.StiffnessMediumLow),
@@ -284,9 +287,10 @@ private fun WeekdayFilterBar(
     items: List<FollowEntry>,
     today: Int,
     selectedDay: Int?,
+    calendar: Map<Int, FollowCalendar>,
     onSelectDay: (Int?) -> Unit,
 ) {
-    val counts = remember(items) { FollowListRules.dayCounts(items) }
+    val counts = remember(items, calendar) { FollowListRules.dayCounts(items, calendar) }
     val labels = WeekdayRes.map { stringResource(it) }
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),

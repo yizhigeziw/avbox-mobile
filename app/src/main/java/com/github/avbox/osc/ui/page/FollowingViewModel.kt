@@ -16,8 +16,10 @@ import com.github.avbox.osc.data.PlaybackProgress
 import com.github.avbox.osc.data.VodFollow
 import com.github.avbox.osc.event.UiChange
 import com.github.avbox.osc.event.UiEvents
+import com.github.avbox.osc.util.AppLog
 import com.github.avbox.osc.util.HistoryHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -46,6 +48,8 @@ internal class FollowingViewModel(
     private val entries = MutableStateFlow<List<FollowEntry>>(emptyList())
     private val _episodeTotals = MutableStateFlow<Map<String, Int>>(emptyMap())
     val episodeTotals = _episodeTotals.asStateFlow()
+    private val _calendar = MutableStateFlow<Map<Int, FollowCalendar>>(emptyMap())
+    val calendar = _calendar.asStateFlow()
     private val _playedPercents = MutableStateFlow<Map<String, Int>>(emptyMap())
     val playedPercents = _playedPercents.asStateFlow()
     private val _today = MutableStateFlow(FollowDays.todayIndex())
@@ -59,6 +63,7 @@ internal class FollowingViewModel(
     val selected = _selected.asStateFlow()
 
     private val historyTick = MutableStateFlow(0)
+    private var calendarJob: Job? = null
 
     init {
         observeHistoryChanges()
@@ -68,6 +73,7 @@ internal class FollowingViewModel(
                 .collect {
                     entries.value = it
                     _episodeTotals.value = EpisodeTotals.snapshot()
+                    refreshCalendar(it)
                 }
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -105,6 +111,26 @@ internal class FollowingViewModel(
     fun refresh() {
         _today.value = FollowDays.todayIndex()
         historyTick.value++
+    }
+
+    private fun refreshCalendar(list: List<FollowEntry>) {
+        calendarJob?.cancel()
+        calendarJob = viewModelScope.launch(Dispatchers.IO) {
+            val result = HashMap<Int, FollowCalendar>()
+            for (entry in list) {
+                val name = entry.follow.name?.takeIf { it.isNotBlank() } ?: entry.history?.name
+                if (name.isNullOrBlank()) continue
+                val year = entry.history?.year ?: 0
+                val detail = try {
+                    TmdbPoster.resolveDetail(name, year)
+                } catch (e: Exception) {
+                    AppLog.e("FollowingViewModel", e)
+                    null
+                }
+                FollowCalendar.from(detail)?.let { result[entry.follow.id] = it }
+            }
+            _calendar.value = result
+        }
     }
 
     private suspend fun resolveHistory(follow: VodFollow): VodInfo? =
