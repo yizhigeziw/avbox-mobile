@@ -85,6 +85,7 @@ class MediaSources(
             C.TYPE_DASH -> DashMediaSource.Factory(factory).createMediaSource(mediaItem)
             C.TYPE_HLS -> HlsMediaSource.Factory(factory)
                 .setLoadErrorHandlingPolicy(HlsErrorHandlingPolicy())
+                .setAllowChunklessPreparation(true)
                 .createMediaSource(mediaItem)
             else -> ProgressiveMediaSource.Factory(factory).createMediaSource(mediaItem)
         }

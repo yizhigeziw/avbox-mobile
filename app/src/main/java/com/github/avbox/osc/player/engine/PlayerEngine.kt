@@ -255,10 +255,19 @@ class PlayerEngine(
 
         override fun onPlaybackStateChanged(eventTime: AnalyticsListener.EventTime, playbackState: Int) {
             if (playbackState == Player.STATE_READY) {
+                PlaybackTiming.markOnce("engine-ready", "engine-ready")
                 playbackStarted = true
             } else if (playbackState == Player.STATE_BUFFERING && playbackStarted) {
                 rebufferCountTotal++
             }
+        }
+
+        override fun onLoadStarted(eventTime: AnalyticsListener.EventTime, loadEventInfo: AnalyticsListener.LoadEventInfo, mediaLoadData: AnalyticsListener.MediaLoadData) {
+            PlaybackTiming.markOnce("load-start-" + mediaLoadData.dataType, "load-start-" + mediaLoadData.dataType)
+        }
+
+        override fun onLoadCompleted(eventTime: AnalyticsListener.EventTime, loadEventInfo: AnalyticsListener.LoadEventInfo, mediaLoadData: AnalyticsListener.MediaLoadData) {
+            PlaybackTiming.markOnce("load-done-" + mediaLoadData.dataType, "load-done-" + mediaLoadData.dataType)
         }
     }
 
@@ -661,7 +670,7 @@ class PlayerEngine(
         }
         val surface = holder.surface
         if (surface == null || !surface.isValid) {
-            // 缈婚〉/瀹夸富绐楀彛鍒囨崲鏃?surface 鍙兘宸查攢姣侊細姝ゆ椂蹇呴』娓呯┖杈撳嚭锛屽惁鍒欒В鐮佸櫒浼氱粦瀹氬凡閲婃斁鐨?surface銆?
+            // 缂堝銆?鐎瑰じ瀵岀粣妤€褰涢崚鍥ㄥ床閺?surface 閸欘垵鍏樺鏌ユ敘濮ｄ緤绱板銈嗘韫囧懘銆忓〒鍛敄鏉堟挸鍤敍灞芥儊閸掓瑨袙閻礁娅掓导姘辩拨鐎规艾鍑￠柌濠冩杹閻?surface閵?
             setVideoSurface(null)
             return
         }
