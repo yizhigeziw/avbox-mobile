@@ -1,0 +1,37 @@
+name: Gates
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: i18n gate (ui 层必须 0 处)
+        run: python .tools/i18n_gate.py
+
+      - name: playstate gate (旧 int 状态面必须 0)
+        run: python .tools/playstate_gate.py
+
+      - name: null-assert gate (裸 !! 必须 0)
+        run: python .tools/null_assert_gate.py
+
+      - name: udf gate (单向数据流 8 条)
+        run: python .tools/udf_gate.py
+
+      - name: ui-layer gate (Composable 不得直连下层)
+        run: python .tools/ui_layer_gate.py

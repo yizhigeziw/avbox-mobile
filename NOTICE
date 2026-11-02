@@ -1,0 +1,23 @@
+AVBox (二次开发版本)
+Copyright (C) 2026 AVBox contributors
+
+本软件以 GNU Affero General Public License v3.0 (AGPL-3.0) 发布。
+完整许可条款见本目录下 LICENSE 文件。
+
+本软件基于以下上游开源项目开发，相关版权归各自作者所有：
+
+  AVBox
+    Copyright (C) XiaochangXu
+    https://github.com/XiaochangXu/AVBox
+
+  TVBoxOS
+    Copyright (C) q215613905
+    https://github.com/q215613905/TVBoxOS
+
+  FongMi/TV
+    Copyright (C) FongMi
+    https://github.com/FongMi/TV
+
+本项目为上述项目的非官方二次开发版本，不代表上游作者立场，
+也未得到上游作者的认可或背书。若需再分发或提供网络服务，
+须遵守 AGPL-3.0 条款并保留上述版权声明。
