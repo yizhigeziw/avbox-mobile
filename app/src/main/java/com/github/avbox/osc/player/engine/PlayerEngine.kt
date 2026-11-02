@@ -295,11 +295,11 @@ class PlayerEngine(
             .setBufferDurationsMs(
                 DefaultLoadControl.DEFAULT_MIN_BUFFER_MS * bufferTimes,
                 DefaultLoadControl.DEFAULT_MAX_BUFFER_MS * bufferTimes,
-                FIRST_FRAME_BUFFER_MS,
+                PlayerEngineConfig.FIRST_FRAME_BUFFER_MS,
                 DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
             )
             .build()
-        AppLog.i("echo-exo-low-memory-load-control first-frame-buffer=" + FIRST_FRAME_BUFFER_MS + "ms")
+        AppLog.i("echo-exo-low-memory-load-control first-frame-buffer=" + PlayerEngineConfig.FIRST_FRAME_BUFFER_MS + "ms")
 
         val builder = ExoPlayer.Builder(
             appContext,
@@ -661,7 +661,7 @@ class PlayerEngine(
         }
         val surface = holder.surface
         if (surface == null || !surface.isValid) {
-            // 翻页/宿主窗口切换时 surface 可能已销毁：此时必须清空输出，否则解码器会绑定已释放的 surface。
+            // 缈婚〉/瀹夸富绐楀彛鍒囨崲鏃?surface 鍙兘宸查攢姣侊細姝ゆ椂蹇呴』娓呯┖杈撳嚭锛屽惁鍒欒В鐮佸櫒浼氱粦瀹氬凡閲婃斁鐨?surface銆?
             setVideoSurface(null)
             return
         }
