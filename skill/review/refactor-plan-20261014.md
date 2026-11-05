@@ -392,7 +392,7 @@ source: 2026-10-14 用户指令：「写一份重构spec，把所有的主线程
 | `data/HistoryWriter.kt:23`                | `runBlocking`            | 同上，专用非主线程单线程宿主                                                                                  |
 | `util/net/Http.kt` `getSync`              | 阻塞同步网络出口                 | R10 明令「N4 不许改成 `runBlocking` 桥接」；调用点 `crawler/JarLoader.kt:342`、`crawler/JsLoader.kt:115`       |
 | `crawler/js/Async.kt:96`                  | `CountDownLatch.await()` | QuickJS 线程亲和，超时不能 cancel                                                                        |
-| `util/thunder/Thunder.kt:197/269/302/341` | `Thread.sleep`           | 都在自建 `Thread.run()` 里，**非主线程，不是问题**                                                             |
+| `util/下载模块/下载模块.kt:197/269/302/341` | `Thread.sleep`           | 都在自建 `Thread.run()` 里，**非主线程，不是问题**                                                             |
 | 播放引擎 / 视图 / 控制器                           | 强制主线程 `main.post`        | ExoPlayer 契约，非违规                                                                                |
 
 **卡口**：全仓 `app/src/main` 里 `runBlocking` 只有上述 2 处（`skill/avbox-okgo-removal-spec.md` 的 grep 卡口进过验收）。新增第三处应视为回归。
@@ -412,7 +412,7 @@ source: 2026-10-14 用户指令：「写一份重构spec，把所有的主线程
 | A2 | `ui/page/AppBootstrap.kt:53-55` `start()` 三步 | `repairBogusNativeLibs()`（文件自检）、`BootGuard.disableBootLoopingSource()`、`ControlManager.get().startServer()`；由 `MainScreen.kt:102` 的 `LaunchedEffect` 触发 ⇒ **Main dispatcher 上做文件自检 + 起服务**。三步须**整体**挪 IO。**✅ 2026-10-14 已落地**（§8.10.7）：整体挪入 `scope.launch`（IO），三步仍串行且仍在 `startInit` 之前 |
 | A3 | `base/App.kt:36` `attachBaseContext` | `KV.init`（MMKV 初始化）；量级预期 <5ms，待 P-1 数据结案 |
 | A4 | `base/App.kt:75-95` | `ControlManager.init`、`AppDataManager.init`、`AutoSize`、`PlayerCache.setSharedCacheSizeBytes`、`QuickJSLoader.init`（实测 5–10ms）、`VodImages.init`（已实测命中 DiskRead）逐项初始化 —— 按档位分别 lazy / 真并行 / 跳过 |
-| A5 | `base/App.kt:96` | `FileUtils.cleanPlayerCache()` 递归删目录 —— 对照**下一行** `Thread(FileUtils::purgeExoCacheIfPending)` 特意起线程，是显式的取舍。**✅ 2026-10-14 已落地**（§8.10.9）：实测缓存有内容时 5–12ms（空目录 1–2ms），已挪进 `exo-cache-boot` 线程；三项前置验证（Thunder 懒加载 / 无写盘窗口 / 删除范围不相交）全部通过 |
+| A5 | `base/App.kt:96` | `FileUtils.cleanPlayerCache()` 递归删目录 —— 对照**下一行** `Thread(FileUtils::purgeExoCacheIfPending)` 特意起线程，是显式的取舍。**✅ 2026-10-14 已落地**（§8.10.9）：实测缓存有内容时 5–12ms（空目录 1–2ms），已挪进 `exo-cache-boot` 线程；三项前置验证（下载模块 懒加载 / 无写盘窗口 / 删除范围不相交）全部通过 |
 | A6 | `BaseActivity.kt:102` / `DetailActivity.onResume` | 每次回前台主线程 `KV.get`；**稳态路径（有渲染在等）**，是 A 组里优先级最高的一类。**✅ 2026-10-14 实测：全部 <5ms（稳态 0.3–1.6ms / 冷启首读 4.03ms）⇒ 判"不动"**（§8.10.7） |
 | A7 | `base/App.kt:73` `util/EpgUtil.init` | ✅ **已是目标形态**（`EpgUtil.kt:13/25` 后台单线程加载 + `:19` `@Volatile emptyMap()` 兜底），实测 0–1ms。作为反例留档：**勿改 lazy**（§8.8 风险 2） |
 
@@ -517,8 +517,8 @@ source: 2026-10-14 用户指令：「写一份重构spec，把所有的主线程
 
 **两处风险提示（修正前面的乐观表述）：**
 
-1. **`FileUtils.cleanPlayerCache()`（8.4 A 表 `App.kt:59`）异步化不是零风险。** 原同步语义保证了"清理先于后续 thunder 缓存写入"；改为后台线程后，理论上存在"新写入的缓存被删除"的竞态。**须先确认 Thunder 的初始化时机**（`Thunder.init` 是否为懒加载、是否可能在清理完成前写盘）再改，不能直接并进 `App.kt:60` 那个线程。
-   > **✅ 2026-10-14 已按本条完成验证并落地（§8.10.9）**：`Thunder.init` 只在 `parse`/`play` 被调用（启动期无写盘窗口）、删除范围只含内部 `cache/thunder`（与 DoH 的 `dohcache`、Coil 图片缓存、外部 `exo-video-cache` 全不相交）⇒ 该竞态**不成立**，清理已安全挪进 `exo-cache-boot` 线程。本条警告保留为决策依据留档。
+1. **`FileUtils.cleanPlayerCache()`（8.4 A 表 `App.kt:59`）异步化不是零风险。** 原同步语义保证了"清理先于后续 下载模块 缓存写入"；改为后台线程后，理论上存在"新写入的缓存被删除"的竞态。**须先确认 下载模块 的初始化时机**（`下载模块.init` 是否为懒加载、是否可能在清理完成前写盘）再改，不能直接并进 `App.kt:60` 那个线程。
+   > **✅ 2026-10-14 已按本条完成验证并落地（§8.10.9）**：`下载模块.init` 只在 `parse`/`play` 被调用（启动期无写盘窗口）、删除范围只含内部 `cache/下载模块`（与 DoH 的 `dohcache`、Coil 图片缓存、外部 `exo-video-cache` 全不相交）⇒ 该竞态**不成立**，清理已安全挪进 `exo-cache-boot` 线程。本条警告保留为决策依据留档。
 2. **`EpgUtil.init` 单纯 lazy 是负收益。** 延迟到首次 `getEpgInfo()` 会把「assets 全文读 + Gson 解析 + 建 HashMap」从启动路径挪到**直播页主线程**（用户可见路径），比现状更糟。必须配：IO 线程一次性加载 + 未就绪时的兜底返回值。
 
 **另一处冗余（与主线程无关，顺手记录）**：`MMKV.initialize` 被调了两次（`App.kt:34` 与已删的 `App.kt:64`），后者已随 P0-1 删除。
@@ -571,7 +571,7 @@ source: 2026-10-14 用户指令：「写一份重构spec，把所有的主线程
 | A2 | `AppBootstrap.start()` 三步（`AppBootstrap.kt:53-55`）：`repairBogusNativeLibs` / `BootGuard.disableBootLoopingSource` / `ControlManager.get().startServer()` | 由 `MainScreen.kt:102` 的 `LaunchedEffect` 触发 ⇒ **Main dispatcher 上做文件自检 + 起服务** | 三步**整体**挪 IO（`AppBootstrap.scope` 已是 `Dispatchers.IO`），`start()` 立刻返回，状态机续走 `Loading` | 只挪第一步就收工；须先确认 `ControlManager.startServer()` 失败路径与 `BootGuard` 的顺序耦合 |
 | A3 | `base/App.kt:36` `KV.init`（`attachBaseContext`） | MMKV 初始化（mmap + `mmkvWithID`） | 量级预期 <5ms ⇒ **大概率判"不动"**，但须由 P-1 数据说话 | — |
 | A4 | `App.kt:75-95` 逐个初始化：`ControlManager` / `AppDataManager` / `AutoSize` / `PlayerCache.setSharedCacheSizeBytes` / `QuickJSLoader` / `VodImages.init` | quickJS 5–10ms（**实测**）；`VodImages.init` 已实测命中 DiskRead；其余待测 | 逐项量级判定 ⇒ lazy / 真并行 / 跳过（跳过冷启动非必需项） | 无脑 `Thread{}`（§8.6：启动路径上"挪后台"不省时间） |
-| A5 | `FileUtils.cleanPlayerCache()`（`App.kt:96`） | 递归删目录；**下一行**才起 `exo-cache-boot` 线程做 purge，是显式取舍 | **三类之一：异步（须先验竞态）/ 跳过（改"起播前清"标记）** | ⛔ 不许直接并进 `App.kt:98` 那个线程（§8.8 风险 1：会删掉新写入的 thunder 缓存） |
+| A5 | `FileUtils.cleanPlayerCache()`（`App.kt:96`） | 递归删目录；**下一行**才起 `exo-cache-boot` 线程做 purge，是显式取舍 | **三类之一：异步（须先验竞态）/ 跳过（改"起播前清"标记）** | ⛔ 不许直接并进 `App.kt:98` 那个线程（§8.8 风险 1：会删掉新写入的 下载模块 缓存） |
 | A6 | `BaseActivity.kt:102` / `DetailActivity.onResume` 每次回前台主线程 `KV.get` | 稳态路径，**有渲染在等** ⇒ A 组内优先级最高 | 实测 → >16ms 则异步或加**内存缓存/快照** | ⛔ 不许把 `KV.get` 逐个改异步（§8.8 明确不做单次 KV 异步化，会引入 loading 态） |
 | A7 | `EpgUtil.init`（`App.kt:73`） | ✅ **已是目标形态**：`epg-loader` 单线程执行器后台加载（`EpgUtil.kt:13/25`）+ `@Volatile emptyMap()` 兜底（`:19`），实测 0–1ms | **无需再做**，作为 A 表反例留档（证明"后台加载 + 未就绪兜底"是可行形态） | ⛔ 不许改成 lazy（§8.8 风险 2：会把 assets 全文读 + Gson 挪到**直播页主线程**，比现状更糟） |
 | 范围外 | 爬虫 `onActivityResumed`（混淆 jar `com.github.catvod.spider.merge.*` 内部） | 链路 `Application.dispatchActivityResumed → Z.b.onActivityResumed → m.k.d → getCacheDir` | **已按 2026-10-14 裁决从 A 表删除**（不可修），**且 P-1 埋点不覆盖**（同日追加裁决） | ⛔ 不许为"可观测"把它重新拉回范围；埋点只到 App 侧 |
@@ -616,7 +616,7 @@ source: 2026-10-14 用户指令：「写一份重构spec，把所有的主线程
 
 **P3 批（有风险项，做不完可整体缓）—— ✅ 2026-10-14 已落地，记录见 §8.10.9**
 
-5. ✅ **A5**：`cleanPlayerCache()` 挪进已有 `exo-cache-boot` 线程（**覆盖 §8.8 "不许并进那个线程"的原警告** —— 三项前置验证全部通过：`Thunder.init` 只在 parse/play 被调用、启动期无写盘窗口；删除范围只含 `cache/thunder`，与 DoH 的 `dohcache` / Coil 的图片缓存 / 外部 `exo-video-cache` 全不相交）。实测缓存有 122 条目时该步 5–12ms，已离开首帧路径，且清理仍生效（冷启后 0 文件）。
+5. ✅ **A5**：`cleanPlayerCache()` 挪进已有 `exo-cache-boot` 线程（**覆盖 §8.8 "不许并进那个线程"的原警告** —— 三项前置验证全部通过：`下载模块.init` 只在 parse/play 被调用、启动期无写盘窗口；删除范围只含 `cache/下载模块`，与 DoH 的 `dohcache` / Coil 的图片缓存 / 外部 `exo-video-cache` 全不相交）。实测缓存有 122 条目时该步 5–12ms，已离开首帧路径，且清理仍生效（冷启后 0 文件）。
 6. ✅ **A3**：`KV.init` 首次实测 119–140ms，但**口径污染**（进程起步 + 类加载 + 首访 mmap 混在一个窗口里，时间戳交叉核对已证）⇒ **判"不动"**（硬前置、无可并行项、净成本不可测）；登记为后续冷启动优化的下一个量化对象。
 7. ✅ **A7**：只补留档 —— 不改为 lazy（§8.8 风险 2），补实测：后台 `epgUtilLoad` 112–125ms，主线程侧 0–1ms。
 
@@ -752,22 +752,22 @@ source: 2026-10-14 用户指令：「写一份重构spec，把所有的主线程
 
 #### A5 · `cleanPlayerCache()` —— 挪进已有后台线程（**覆盖 §8.8 风险 1 的"不许并进那个线程"**）
 
-**先量后动**：空目录时该步 1–2ms，但**缓存有内容时完全不同** —— 实测在 `cache/thunder` 造 122 个条目（40 个 256KB 文件 + 40 个带文件的子目录，13MB）后，该步变成 **5–12ms**（§8.6 的 `>5ms` 线以上）。这正是 §8.8 当初担心的形态，现在有了数据。
+**先量后动**：空目录时该步 1–2ms，但**缓存有内容时完全不同** —— 实测在 `cache/下载模块` 造 122 个条目（40 个 256KB 文件 + 40 个带文件的子目录，13MB）后，该步变成 **5–12ms**（§8.6 的 `>5ms` 线以上）。这正是 §8.8 当初担心的形态，现在有了数据。
 
 **三项前置验证（全部通过，故原警告的竞态不成立）**：
 
 | 验证 | 结论 | 证据 |
 | --- | --- | --- |
-| ① `Thunder.init` 是否懒加载、能否在清理完成前写盘 | **懒加载，且启动期绝不可能写盘** | `Thunder.init`（`Thunder.kt:44`，内部在 `:66` 设 `cacheRoot = context.cacheDir + "/thunder"`）只有两个调用点：`parse()`（`:105`）与 `play()` 路径（`:313`）⇒ 都要求用户在播放。启动瞬间没有播放在跑，**不存在"清理前/清理中被写盘"的窗口** |
-| ② 是否与新写入竞态 | **不可能** | 启动期唯一会写文件的初始化（`VodImages.init`）只注册 lambda，首次图片加载才建 `pic_http_cache`；`OkGoHelper` 的 DoH 缓存目录名是 `dohcache`（非 `thunder`）；`PlayerCache.warmup` 在**外部**缓存写 `exo-video-cache`（见③）⇒ 全部与 `cache/thunder` 不相交 |
-| ③ 删除范围 | **只删 `cache/thunder/` 的内容** | `cleanPlayerCache` 用 `cleanDirectory`（遍历删子项、**保留目录本身**），路径 `getCachePath() + "/thunder/"` = 内部 `cacheDir/thunder`；而 `purgeExoCacheIfPending` 删的是 `getExternalCachePath() + "/exo-video-cache"` = **外部**缓存 ⇒ **两者连盘都不同**，且顺序无关 |
+| ① `下载模块.init` 是否懒加载、能否在清理完成前写盘 | **懒加载，且启动期绝不可能写盘** | `下载模块.init`（`下载模块.kt:44`，内部在 `:66` 设 `cacheRoot = context.cacheDir + "/下载模块"`）只有两个调用点：`parse()`（`:105`）与 `play()` 路径（`:313`）⇒ 都要求用户在播放。启动瞬间没有播放在跑，**不存在"清理前/清理中被写盘"的窗口** |
+| ② 是否与新写入竞态 | **不可能** | 启动期唯一会写文件的初始化（`VodImages.init`）只注册 lambda，首次图片加载才建 `pic_http_cache`；`OkGoHelper` 的 DoH 缓存目录名是 `dohcache`（非 `下载模块`）；`PlayerCache.warmup` 在**外部**缓存写 `exo-video-cache`（见③）⇒ 全部与 `cache/下载模块` 不相交 |
+| ③ 删除范围 | **只删 `cache/下载模块/` 的内容** | `cleanPlayerCache` 用 `cleanDirectory`（遍历删子项、**保留目录本身**），路径 `getCachePath() + "/下载模块/"` = 内部 `cacheDir/下载模块`；而 `purgeExoCacheIfPending` 删的是 `getExternalCachePath() + "/exo-video-cache"` = **外部**缓存 ⇒ **两者连盘都不同**，且顺序无关 |
 
-**处置**：`FileUtils.cleanPlayerCache()` 调用点从 `App.onCreate` 主线程移入已有的 `exo-cache-boot` 线程，排在 `purgeExoCacheIfPending()` → `PlayerCache.warmup()` **之后**（保持串行以免并发删目录互相干扰；三个目标目录互不相交，故"清理先于 thunder 写入"的原始语义不受影响）。`cleanPlayerCache()` 函数本身**一字未改**（连它自己的 `try/catch` 都保留）。
+**处置**：`FileUtils.cleanPlayerCache()` 调用点从 `App.onCreate` 主线程移入已有的 `exo-cache-boot` 线程，排在 `purgeExoCacheIfPending()` → `PlayerCache.warmup()` **之后**（保持串行以免并发删目录互相干扰；三个目标目录互不相交，故"清理先于 下载模块 写入"的原始语义不受影响）。`cleanPlayerCache()` 函数本身**一字未改**（连它自己的 `try/catch` 都保留）。
 
 **实测确认**：
 
 - 主线程 `echo-boot` 里 **`cleanPlayerCache` 已消失**，`onCreate` 各步不变（含 122 条目的缓存下，`onCreateDone` 前合计 ≈44ms，与空缓存时一致）⇒ **该步的 5–12ms 已离开首帧路径**。
-- 清理**仍然生效**：预置 122 条目 → 冷启动后 `find cache/thunder -type f | wc -l` = **0**、`cache/thunder/temp` 子项 = **0**（连跑两轮均为 0）。
+- 清理**仍然生效**：预置 122 条目 → 冷启动后 `find cache/下载模块 -type f | wc -l` = **0**、`cache/下载模块/temp` 子项 = **0**（连跑两轮均为 0）。
 - `exo-cache-boot` 线程按预期活着：`echo-playercache-warmup dt=12ms`（tid ≠ pid）。
 
 #### A3 · `KV.init`（`attachBaseContext`）—— 判"不动"
@@ -805,7 +805,7 @@ source: 2026-10-14 用户指令：「写一份重构spec，把所有的主线程
 
 #### 本轮未做（诚实标注）
 
-1. **A5 的走查未做**：只验证了"缓存被清空 + 主线程不再有该步"，未按 §7 清单走查迅雷播放链路（真实下载 → 缓存 → 重启清理 → 再播放）。
+1. **A5 的走查未做**：只验证了"缓存被清空 + 主线程不再有该步"，未按 §7 清单走查下载模块播放链路（真实下载 → 缓存 → 重启清理 → 再播放）。
 2. **A5 的收益是"移出首帧路径"而非"省时间"**：这是 §8.6 明确允许的例外（原语义要求清理先于使用），但与 A1 的"真并行"性质不同，故未计入 §8.10.8 的耗时对比表。
 3. **A3 的净成本未测得**（受进程起步口径污染），登记为后续项。
 4. **未提交**：改动留在工作区。

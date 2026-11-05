@@ -10,7 +10,6 @@
     <string name="home_load_timeout">首頁載入超時，請檢查網絡後重試</string>
     <string name="home_load_partial_timeout">部分內容載入超時，可下拉重新整理重試</string>
     <string name="toast_network_error">網絡錯誤</string>
-    <string name="thunder_error_network_refused">拒絕的網絡連接</string>
     <string name="settings_about_disclaimer">本軟件僅提供聚合展示功能，所有資源均來自互聯網，軟件不參與任何內建、製作、上傳、儲存、下載等內容，也不接受任何捐贈、打賞、付費等謀利行為，軟件僅供開源學習參考，請於安裝後24小時內刪除。\n\n打包分發請保留出處\nhttps://github.com/CatVodTVOfficial/TVBoxOSC\nhttps://github.com/q215613905/TVBoxOS</string>
     <string name="preload_play_cache">邊播邊緩存</string>
     <string name="preload_cache_size">緩存容量</string>
@@ -41,9 +40,6 @@
     <string name="player_get_info_error">獲取播放資訊錯誤</string>
     <string name="player_getting_info">正在獲取播放資訊</string>
     <string name="player_play_url_empty">獲取播放地址為空</string>
-    <string name="thunder_error_timeout">解析下載超時</string>
-    <string name="thunder_parsing">磁力解析中，請稍候</string>
-    <string name="thunder_parse_timeout">磁力解析逾時</string>
     <string name="dialog_api_url_hint">請輸入 API 地址</string>
     <string name="live_repo_entry_not_deletable">倉庫列表來自倉庫地址，不能單獨刪除</string>
     <string name="settings_search_threads">搜尋線程</string>

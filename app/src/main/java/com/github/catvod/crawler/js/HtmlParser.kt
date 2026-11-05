@@ -35,7 +35,7 @@ class HtmlParser {
         private val p: Pattern = Pattern.compile("url\\((.*?)\\)", Pattern.MULTILINE or Pattern.DOTALL)
         private val NOADD_INDEX: Pattern = Pattern.compile(":eq|:lt|:gt|:first|:last|^body$|^#")
         private val URLJOIN_ATTR: Pattern = Pattern.compile("(url|src|href|-original|-src|-play|-url|style)$", Pattern.MULTILINE or Pattern.CASE_INSENSITIVE)
-        private val SPECIAL_URL: Pattern = Pattern.compile("^(ftp|magnet|thunder|ws):", Pattern.MULTILINE or Pattern.CASE_INSENSITIVE)
+        private val SPECIAL_URL: Pattern = Pattern.compile("^(ftp|magnet|ws):", Pattern.MULTILINE or Pattern.CASE_INSENSITIVE)
         private var pdfh_doc: Document? = null
         private var pdfa_doc: Document? = null
 

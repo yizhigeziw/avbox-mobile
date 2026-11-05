@@ -133,8 +133,8 @@ URL 里带 `filename=BanG.Dream.Ave.Mujica.S01.D01.2025.1080p.JPN.Blu-ray.AVC.LP
 
 ```powershell
 # 用已抓好的 4MB m2ts 头(192B 包)离线喂 IsoExtractorsFactory,看能否产出样本
-$env:ISO_SLICE = "C:\Users\Administrator\AppData\Local\Temp\iso_head.bin"
-cd D:\Project\TVBoxOS-main
+$env:ISO_SLICE = "$env:TEMP\iso_head.bin"
+cd <repo-root>
 .\gradlew.bat :app:testDebugUnitTest --tests "com.github.tvbox.osc.player.engine.iso.IsoSliceHarnessTest" --no-daemon --console=plain -q
 # 报告落在 (<java.io.tmpdir>\iso-harness-report.txt)
 ```

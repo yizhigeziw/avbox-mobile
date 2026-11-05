@@ -265,12 +265,12 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 - **中（本次引入，已修 `303c603`）**：`split("#")` 语义偏差 —— `SourceHelper.absXml`、`PushDetailResolver.list` 两处 limit=0 切分写成 `split("#")`/`split(Regex("#"))`，都保留尾部空串 ⇒ 播放地址以 `#` 结尾时会多出一条空剧集；`StringUtils.getBaseUrl` 的 `split(Regex("/"))[0]` 在退化输入 `"/"` 下也不再与 Java 一致（AIOOBE → `""`）。三处统一改 `RegexUtils.getPattern(p).split(s)`。
 - **低（本次引入，已修）**：Kotlin `trim()` 空白集大于 Java（2 处，见第 16 条）；4 个未使用 import（`PushDetailResolver` 的 `Spider`/`SourceBean`、`SourceResultParser` 的 `JsonArray`/`JsonElement`）。
 - **低（本次引入，登记接受，不改）**：`util/RegexUtils` 由 `class`（隐式 public 无参构造器）变 `object`（构造器消失、多 `INSTANCE` 字段）。静态方法经 `@JvmStatic` 全保留；仓库内零调用点、也不在 D9 Tier B 清单（Tier B 的 `MD5`/`StringUtils` 用的是 `class` + `companion`，构造器形态守恒）。要完全保守可改回 `class` + `companion`。
-- **低（既有，登记不改）**：`AbsJson` 两处 limit=0 `split(Regex(...))` 保留尾部空串（被 `trim().isEmpty()` 守卫兜住，结果等价）；`PushUrlParser`（org.json）与 `PushDetailResolver`（OkGo/迅雷/App）在 `unitTests.isReturnDefaultValues = true` 下无法做 JVM 单测（既有结构限制，靠真机走查）。
+- **低（既有，登记不改）**：`AbsJson` 两处 limit=0 `split(Regex(...))` 保留尾部空串（被 `trim().isEmpty()` 守卫兜住，结果等价）；`PushUrlParser`（org.json）与 `PushDetailResolver`（OkGo/下载模块/App）在 `unitTests.isReturnDefaultValues = true` 下无法做 JVM 单测（既有结构限制，靠真机走查）。
 - **无 阻断 / 高 级发现**，剩余全部为低 / 既有 / 口味 ⇒ 按收敛终止线判定**可收尾**。
 - 复核结果：`:app:assembleDebug` 绿、`:app:testDebugUnitTest` **523 用例 / 0 失败**（新增 1 例覆盖 `#` 切分）、改动文件 LF、编译告警仍只有下面第 14 条的 4 条。新增回归测试做了**正/反向自测**：退回 `split(Regex("#"))` 时报 `expected:<1> but was:<2>`，改回 `Pattern.split` 后通过。
 - 审查覆盖面的诚实标注：`PushUrlParser`/`PushDetailResolver` 的 JSON/网络分支没有自动化覆盖（见上）；`SourceHelper`/`SourceResultParser` 有既有单测 + 新增 1 例。
 
-**未验证面（诚实标注）**：真机走查未做 —— 首页分类/推荐（`sortXml`+filters 兜底）、详情起播（push:// 解析、迅雷改写）、搜索面板、换源与 extend（`getFixUrl` 本地/网络/超时三出口）、推送直链带 `@Headers=`、`#` 结尾的播放地址（多集/多线路）。
+**未验证面（诚实标注）**：真机走查未做 —— 首页分类/推荐（`sortXml`+filters 兜底）、详情起播（push:// 解析、下载模块改写）、搜索面板、换源与 extend（`getFixUrl` 本地/网络/超时三出口）、推送直链带 `@Headers=`、`#` 结尾的播放地址（多集/多线路）。
 
 # 7.6 M4a 实测登记（2026-10-05，LiveData→Flow 收口）
 
@@ -311,7 +311,7 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 
 13. **保留的编译告警（逐条判定无害，勿"顺手修"）**：① `URLDecoder.decode(String)` / `URLEncoder.encode(String)` deprecated（Java 侧同样 deprecated；非弃用重载要 API 33）；② OkHttp 4 的 `Response.body` 是非空类型 ⇒ `if (body != null) … else throw …` 报 `Condition is always 'true'`（8 处；Java 那句本来就恒真，**删掉 else 出口才是重构**）；③ `SortData.filterSelect` 的两条恒真/恒假（第 4 条 / §7.5 第 4 条，分支已 `javap -c` 实证保留）；④ `PlayLoader` 的 `Java type mismatch: inferred type is 'String?'`（`JSONObject(json)` 的可空入参 —— 与 Java 的 NPE/JSONException 落在同一个 `catch`，行为等价，同 §7.5 第 13 条）。
 
-**未验证面（诚实标注）**：真机走查未做 —— 首页分类/推荐、详情回包与换源 fallback（`detailToken` 代次链路）、搜索面板、`action` 消息、起播取流与下一集预载（`playResult`/`preloadResult` 的 LiveData 兼容面）、t4 源 extend 的 GET/POST 双出口、推送直链与迅雷改写。
+**未验证面（诚实标注）**：真机走查未做 —— 首页分类/推荐、详情回包与换源 fallback（`detailToken` 代次链路）、搜索面板、`action` 消息、起播取流与下一集预载（`playResult`/`preloadResult` 的 LiveData 兼容面）、t4 源 extend 的 GET/POST 双出口、推送直链与下载模块改写。
 
 # 7.8 M5 实测登记（2026-10-05，`api/` 全包 8 个类）
 
@@ -371,7 +371,7 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 
 **本里程碑现场核实出的规则（M6b / M7 / M9 / M10 照查）**：
 
-1. **`AppContextHolder.context()` 的可空性会传导一整批文件**：Java 里它是平台类型，Kotlin 声明 `Context?` 后，`AppLog`/`EpgUtil`/`ImgUtil`/`FileUtils`/`HttpClients`/`Jianpian`/`Thunder`/`UA` 等 20+ 处 `AppContextHolder.context().xxx` 全部要补 `!!`（复刻 Java 隐式解引用）。**动作**：迁一个"返回可空 Context 的门面"时，先 grep 它的全部调用点，别等编译报错逐个补。
+1. **`AppContextHolder.context()` 的可空性会传导一整批文件**：Java 里它是平台类型，Kotlin 声明 `Context?` 后，`AppLog`/`EpgUtil`/`ImgUtil`/`FileUtils`/`HttpClients`/`Jianpian`/`下载模块`/`UA` 等 20+ 处 `AppContextHolder.context().xxx` 全部要补 `!!`（复刻 Java 隐式解引用）。**动作**：迁一个"返回可空 Context 的门面"时，先 grep 它的全部调用点，别等编译报错逐个补。
 2. **`String.equalsIgnoreCase` 在 Kotlin 不存在** ⇒ `equals(x, ignoreCase = true)`。`LocalIPAddress` 2 处、`RemoteTVBox` 4 处、`TxtSubscribe` 1 处、`OkProxySelector` 1 处。
 3. **`HashMap.keySet()` 在 Kotlin 侧不可用**：`java.util.HashMap` 被映射成 Kotlin 的 `MutableMap`，只暴露 `keys` 属性 ⇒ 写 `checked.keys`。报错形态很迷惑（同时报 `Unresolved reference 'keySet'` 与 `Method 'iterator()' is ambiguous`，并列出 `Map.iterator()` 等一堆候选）。
 4. **Kotlin 没有 `Int + String`**（`None of the following candidates is applicable`，候选只列 `plus(Byte/Short/Int/Long/Float/Double)`）⇒ 必须 `x.toString() + "…"`。`LocalIPAddress.intToIp`、`TrackMemory.videoFingerprint`、`FileUtils.formatCacheSize`（`Math.max(1L, …).toString() + "KB"`）。
@@ -388,16 +388,16 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 15. **`assert` 一律保留**（`Proxy` 3 处、`HttpClients.CustomDns` 1 处）；但 `assert x != null` 在形参已非空时会报"恒真"告警，登记即可。反之 Java 里"**判空出现在解引用之后**"的死判空（`AES.rightPadding` 的 `if (key != null && …)`）可以删，登记。
 16. **`java.lang.String.valueOf` / `java.lang.Long.parseLong` / `java.lang.Double.parseDouble` 必须写全限定名**（Kotlin 的 `String`/`Long`/`Double` 是映射类型，没有这些静态方法）。
 17. **`ExternalPlayerLauncher.launch`（原 `PlayerHelper.runExternalPlayer` 的 6 参重载）曾自递归，属既有缺陷**（迁移期原样保留，全仓 0 调用方；后续拆分时两个重载合并为单函数，自递归面随之消失）。同类：`PlayerCatalog.exists` 与 `ExternalPlayerLauncher.launch` 的返回类型由 `java.lang.Boolean` 变原生 `boolean`（描述符变化、无调用方受影响，登记）。
-18. **`Thunder.ParseTask.run()` 的 `switch` fallthrough**（Java `case 2:` 无 break ⇒ 落到 `case 3: break outerLoop`）：Kotlin `when` 没有 fallthrough，但 `when` 对 `break` 是透明的 ⇒ 在 `2 -> {}` 分支的 try/catch **之后**补一句 `break@outerLoop` 即可精确复刻（try 内命中时另有一处 `break@outerLoop`）。**迁移前逐 `switch` 判有没有漏 break。**
-19. **`object` 化的纯静态类里，Java 的 `private static` 助手落成私有实例方法即可**（`private` 无外部契约）；但**包私有**成员要逐个 grep：有外部调用方就放宽为 `public`（`DefaultConfig.pickByCategories`、`DecodeDecision.isExoDecodeApplied`、`Proxy.resolveRedirectLocation`/`joinUrl`、`BootGuard.*`、`HttpClients.indexOfDohUrl` 都是同包测试在用），没有就收紧为 `private` 并登记（`HttpClients` 的 5 个、`Thunder` 的 6 个、`KVDecoder.parse`/`assignable`）。
+18. **`下载模块.ParseTask.run()` 的 `switch` fallthrough**（Java `case 2:` 无 break ⇒ 落到 `case 3: break outerLoop`）：Kotlin `when` 没有 fallthrough，但 `when` 对 `break` 是透明的 ⇒ 在 `2 -> {}` 分支的 try/catch **之后**补一句 `break@outerLoop` 即可精确复刻（try 内命中时另有一处 `break@outerLoop`）。**迁移前逐 `switch` 判有没有漏 break。**
+19. **`object` 化的纯静态类里，Java 的 `private static` 助手落成私有实例方法即可**（`private` 无外部契约）；但**包私有**成员要逐个 grep：有外部调用方就放宽为 `public`（`DefaultConfig.pickByCategories`、`DecodeDecision.isExoDecodeApplied`、`Proxy.resolveRedirectLocation`/`joinUrl`、`BootGuard.*`、`HttpClients.indexOfDohUrl` 都是同包测试在用），没有就收紧为 `private` 并登记（`HttpClients` 的 5 个、`下载模块` 的 6 个、`KVDecoder.parse`/`assignable`）。
 20. **既有 Java 测试用"实例引用调静态方法"的写法会挡住 `@JvmStatic`**：`KVDecoderTest.java` 的 `decoder.coerceNumber(int.class, …)` 要求 `coerceNumber` 在 Kotlin 侧是**实例方法**（`@JvmStatic` 只生成外层类静态方法 + companion 实例方法，不会给外层类生成实例方法）⇒ 落成 public 实例方法，Java 测试一行不改仍可编译。**动作**：迁类前先 grep 测试里的 `<实例>.<方法>(` 形态。
 21. **`@Throws` 只在本类有 Java 调用方时需要**（`UnicodeReader` 的 5 个构造器/`close`/`init`/`read`、`Proxy.itv`/`removeBOMFromM3U8`/`redirectedUrl`/`getM3U8Content`、`Utils.fixJsonVodHeader`/`jsonParse`、`SSLSocketFactoryCompat` 的 `createSocket` 系列）；纯 Kotlin 调用方的受检异常声明可以丢（登记）。
 
 **调用点改写清单（非 util 文件，共 4 处）**：`api/ApiConfig.kt` 的 `FindResult(...)` 返回类型改 `String?` + 内部局部 `out`（1 处）；`api/ConfigLoader.kt:393` 的 `ApiConfig.FindResult(...)!!`（1 处，复刻 Java 在下游非空形参处的 NPE→外层 catch→error）；`bean/ParseBean.kt:18` 的 `DefaultConfig.checkReplaceProxy(urlValue!!)`（1 处，Java 同样 NPE）；`util/SubtitleHelper.kt` 的 `getTextSize`/`subtitleTextAutoSize` 形参改 `Activity?` + 内部 `ScreenUtils.getSqrt(activity!!)`（适配既有 Kotlin 调用方传 `findActivityOrNull()`）。
 
-**审查轮（2026-10-05，结论 = 修 1 条阻断后可收尾）**：5 个只读子代理独立逐方法逐语句对账（分工：Tier B+kv 栈 8 个；`FileUtils`+`HttpClients`+`M3u8`；`Proxy`+thunder+live+parser 7 个；播放/图片/网络/配置 12 个；叶子小类+net/SSL 15 个），**0 条高 / 0 条中（除已修的阻断项）**；本机复跑 `lf` 45/45 + `methods` 45/45 + `tokens` 45/45 + `prune_imports` + 定向陷阱面扫描 + `javap -p -c` 双变体实证。报告落盘 `skill/review/review-20261005-m6-util.md`。记账：**阻断/本次引入 1 条（已修）** = `KV.get(key, null)` 的 NPE；**中/本次引入 1 条** = `PlayerCatalog` 的 `Boolean`→`boolean` 描述符变化（0 调用方）；**低/本次引入 7 条** = `DefaultConfig.pickByCategories` 的 `==` 取代 `equals`（更宽容）、`KVDecoder.coerceNumber` static→实例 + public、`KVKeySpec` 两常量/构造器放宽、`HttpClients`/`Thunder` 若干包私有收紧、`UnicodeReader` final 化、`Proxy` 的日志/异常类型差异、`VideoParseRuler` 丢 `assert`；**低/既有 2 条** = `KV` KDoc 与实现本就不一致、`PlayerCatalog` 无限递归；**口味 2 条** = `lowercase()` 的 locale、`SubtitleHelper` 形参放宽。
+**审查轮（2026-10-05，结论 = 修 1 条阻断后可收尾）**：5 个只读子代理独立逐方法逐语句对账（分工：Tier B+kv 栈 8 个；`FileUtils`+`HttpClients`+`M3u8`；`Proxy`+下载模块+live+parser 7 个；播放/图片/网络/配置 12 个；叶子小类+net/SSL 15 个），**0 条高 / 0 条中（除已修的阻断项）**；本机复跑 `lf` 45/45 + `methods` 45/45 + `tokens` 45/45 + `prune_imports` + 定向陷阱面扫描 + `javap -p -c` 双变体实证。报告落盘 `skill/review/review-20261005-m6-util.md`。记账：**阻断/本次引入 1 条（已修）** = `KV.get(key, null)` 的 NPE；**中/本次引入 1 条** = `PlayerCatalog` 的 `Boolean`→`boolean` 描述符变化（0 调用方）；**低/本次引入 7 条** = `DefaultConfig.pickByCategories` 的 `==` 取代 `equals`（更宽容）、`KVDecoder.coerceNumber` static→实例 + public、`KVKeySpec` 两常量/构造器放宽、`HttpClients`/`下载模块` 若干包私有收紧、`UnicodeReader` final 化、`Proxy` 的日志/异常类型差异、`VideoParseRuler` 丢 `assert`；**低/既有 2 条** = `KV` KDoc 与实现本就不一致、`PlayerCatalog` 无限递归；**口味 2 条** = `lowercase()` 的 locale、`SubtitleHelper` 形参放宽。
 
-**未验证面（诚实标注）**：真机走查未做 —— 换源成功/失败与 `clan://` 解密、播放器参数面板与内核切换、投屏与 DLNA、本地/在线字幕加载与轨道记忆、m3u8 去广告全链路与 `/proxy` 四级路由、迅雷/荐片下载、启动看门狗与黑名单、原生库修复与清除缓存、KV 全链路（集合与嵌套泛型还原、doh 合并去重）。详见审查报告第四节。
+**未验证面（诚实标注）**：真机走查未做 —— 换源成功/失败与 `clan://` 解密、播放器参数面板与内核切换、投屏与 DLNA、本地/在线字幕加载与轨道记忆、m3u8 去广告全链路与 `/proxy` 四级路由、下载模块/荐片下载、启动看门狗与黑名单、原生库修复与清除缓存、KV 全链路（集合与嵌套泛型还原、doh 合并去重）。详见审查报告第四节。
 
 # 7.11 M6 追加批次实测登记（2026-10-05，`sourcedata/SubtitleViewModel` + `data/AppDataManager`）
 
@@ -534,7 +534,7 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 3. **Java 静态面迁 `companion object` + `@JvmStatic` 时必须回查 Java 调用点**：`PlaybackService` 9 个入口逐一比对 `PlayContainer.java` 后落 `@JvmStatic`；`onEngineReleased` 由包私有放宽为 public；私有 static 助手（`setLiveFlag`/`prewarmEnabled`/`startHost`/`releaseEngine`）留 companion private（Kotlin 侧调用不受影响）。
 4. **可空性放宽必须按"调用点实参"定，只放宽不收紧**：`PlaybackService.updateSession(title/subtitle/artwork)` → `String?`（来源含 `host.vod()!!.pic`）；`ProgressManager.saveProgress/getSavedProgress(url)` → `String?`（dooki 传 `playUrl`，release 路径会置 null，收紧即新增崩溃）；`PlaybackController.getCastUrl` 返回 `String?`（`CastVideo(url: String)` 调用点补 `?: url`）；`PlaybackController.initParse(playUrl, url)`、`MusicSessionDelegate.Host.playUrl(headers)`、`PlaybackViewBridge.playM3u8(headers, gen)`/`playExternalPlayer(subtitle, headers)`/`newSniffWebView()`/`buildPreloadSnapshot()` 同则。
 5. **`tokens` 的 getter 属性化盲区**：`getMessage`→`message`、`getClass`→`javaClass`、`getSimpleName`→`simpleName`、`getPackageName`→`packageName`、`getSessionToken`→`sessionToken`、`getApplicationContext`→`applicationContext`、`getAction`→`action`、`Image_androidKt.toBitmap`→`toBitmap`（扩展函数）都计入「旧有新无」，不算违规；`NonNull`/`Nullable`/`SuppressLint` 等注解 import 消失同理。
-6. **"Java 逐次重读不得缓存" 适用于数据读取点（不只是桥）**：`PlaybackController.play()/goPlayUrl()` 里 `vod()`、`vs.url` 的多次重读必须逐次复刻旧形态（`vod()!!.x`），**不能**收敛成入口处的局部 val —— 桥回调（`view.stopOtherPlayers()`/`releasePlayer()`/`clearVideoFrame()`）与 `Thunder.play`/`preload.consumeResult` 之间都可能重新进入会话边界。反之旧 Java 自己缓存成局部量的（`PlaybackRetryDelegate.trySoftDecodeFallback`/`tryNextLine`）照缓存。
+6. **"Java 逐次重读不得缓存" 适用于数据读取点（不只是桥）**：`PlaybackController.play()/goPlayUrl()` 里 `vod()`、`vs.url` 的多次重读必须逐次复刻旧形态（`vod()!!.x`），**不能**收敛成入口处的局部 val —— 桥回调（`view.stopOtherPlayers()`/`releasePlayer()`/`clearVideoFrame()`）与 `下载模块.play`/`preload.consumeResult` 之间都可能重新进入会话边界。反之旧 Java 自己缓存成局部量的（`PlaybackRetryDelegate.trySoftDecodeFallback`/`tryNextLine`）照缓存。
 7. **字段初始化必须早于 `init {}` 块**：Kotlin 属性初始化器与 `init` 按文本顺序执行，而 Java 的字段初始化器一律早于构造器体 —— 把 `idleRelease` 这类"构造期就可能被方法用到"的字段写在 `init` 之后，构造期会读到 null（`PlaybackEngine` 复核轮的中项）。
 8. **Flow 收口的 Scope 与派发写法（本片定型）**：收集域 = 拥有者对象自身（`private var collectJob = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch { flow.collect { … } }`，`release`/`destroy` 里 `cancel`）；主线程派发靠 `Dispatchers.Main.immediate`（`tryEmit` 在发射线程恢复收集者）。**"观察者已注册"这类语义要显式复刻**（`deliver` 用 `collectJob?.isActive` 守卫）。UI 侧对通道的订阅用 `lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED)` + 通道 `replay = 1`，等价旧 `observe(lifecycleOwner)` 的 STARTED 期订阅与回放。
 9. **`SourceChannel` 现只有 `flow` + `postValue`/`setValue`**（均 `tryEmit`）：新增消费方不要再引 LiveData；`SourceChannelTest` 锁住三条语义（粘性回放 / null 合法载荷 / 活跃收集者不合并 + 溢出丢最旧 + 跨线程投递）。与 LiveData 的差异（不合并）是**有意行为**，写进走查清单。
@@ -661,7 +661,7 @@ pwsh skill/scripts/verify-migration.ps1 -Action tierb
 13. **状态机里"顺手复位"的分支不能漏**：旧 `BaseVideoController.onPlayStateChanged(STATE_PLAYBACK_COMPLETED)` 会清锁定态（`mIsLocked = false`），而手势层的门禁读的就是它 ⇒ 漏清会出现"锁屏 → 自动跳下一集 → 手势全被拒，且锁图标已自动隐藏、用户无从解锁"。
 14. **`BasePlayerView.showNetWarning()` 的默认值口径**：`VideoViewConfig.Builder.mPlayOnMobileNetwork` 默认 **true**，但单例字段取自 `VideoViewManager` 自己的 `mPlayOnMobileNetwork`（默认 **false**），本仓库从不 `setConfig` ⇒ 旧闸门恒为 false（从不中止起播）。移植按"恒不中止"落成钩子即等价。
 
-**复核轮（2026-10-06，独立只读子代理逐方法对照 fork 原文）**：**2 阻断 / 2 高 / 1 中 / 5 低，已全部处置**。① 阻断 = `playerActivity()` 解析方向反了（进播放页 NPE，见规则 11）—— 已修；② 阻断 = 进度定时器 0 延迟自旋（见规则 12）—— 已修（照抄 `postDelayed` + 秒边界 + 不在播停表）；③ 高 = 旋转 / 返回键 / OSD 三处同样依赖 `playerActivity()` —— 随 ① 修；④ 高 = `onDetachedFromWindow` 未复位计时标志（重挂后进度永久冻结）—— 已修；⑤ 中 = 完播不清锁定态 —— 已修（见规则 13）；⑥ 低 = `PlayerUiState.showing` 成无写入死字段、`resume()` 删掉 Surface 未就绪的等待分支（改由渲染宿主 `surfaceCreated` 交面，属有意差异）、`playOnMobileNetwork` 注释默认值写反（已按规则 14 改写）、`MediaSources` 单例 KDoc 声称"懒读 client"而代码是"注入优先"（当前无缺陷：`HttpClients` 每次 `reloadDns()` 都重注入）、`setMute`/`isFullScreen`/`onBackPressed`/`currentPlayerState` 保留空壳入口（app 侧零调用点）—— 均登记不作返工。**子代理另核出打包耦合**：`:player` 模块还携带 app 唯一来源的原生库（`player/src/main/jniLibs/arm64-v8a/libp2p.so` / `libxl_stat.so` / `libxl_thunder_sdk.so`，app 侧无 `jniLibs`，`P2PClass` 用 `System.loadLibrary("p2p")`）⇒ **M10 删模块前必须先把 jniLibs 迁到 `app/src/main/jniLibs`**，否则 `P2PClass` 类初始化即 `UnsatisfiedLinkError`。复核同时确认了本片自称的两条：(a) `app/src` 的 `xyz.doikki` 命中**全在 KDoc**；(b) 无任何 app 代码 `extends`/`implements`/`new` doikki 类（fork 仅因 `app/build.gradle.kts:137 implementation(project(":player"))` 被打包）。
+**复核轮（2026-10-06，独立只读子代理逐方法对照 fork 原文）**：**2 阻断 / 2 高 / 1 中 / 5 低，已全部处置**。① 阻断 = `playerActivity()` 解析方向反了（进播放页 NPE，见规则 11）—— 已修；② 阻断 = 进度定时器 0 延迟自旋（见规则 12）—— 已修（照抄 `postDelayed` + 秒边界 + 不在播停表）；③ 高 = 旋转 / 返回键 / OSD 三处同样依赖 `playerActivity()` —— 随 ① 修；④ 高 = `onDetachedFromWindow` 未复位计时标志（重挂后进度永久冻结）—— 已修；⑤ 中 = 完播不清锁定态 —— 已修（见规则 13）；⑥ 低 = `PlayerUiState.showing` 成无写入死字段、`resume()` 删掉 Surface 未就绪的等待分支（改由渲染宿主 `surfaceCreated` 交面，属有意差异）、`playOnMobileNetwork` 注释默认值写反（已按规则 14 改写）、`MediaSources` 单例 KDoc 声称"懒读 client"而代码是"注入优先"（当前无缺陷：`HttpClients` 每次 `reloadDns()` 都重注入）、`setMute`/`isFullScreen`/`onBackPressed`/`currentPlayerState` 保留空壳入口（app 侧零调用点）—— 均登记不作返工。**子代理另核出打包耦合**：`:player` 模块还携带 app 唯一来源的原生库（`player/src/main/jniLibs/arm64-v8a/libp2p.so` / `下载库统计库` / `下载库原生库`，app 侧无 `jniLibs`，`P2PClass` 用 `System.loadLibrary("p2p")`）⇒ **M10 删模块前必须先把 jniLibs 迁到 `app/src/main/jniLibs`**，否则 `P2PClass` 类初始化即 `UnsatisfiedLinkError`。复核同时确认了本片自称的两条：(a) `app/src` 的 `xyz.doikki` 命中**全在 KDoc**；(b) 无任何 app 代码 `extends`/`implements`/`new` doikki 类（fork 仅因 `app/build.gradle.kts:137 implementation(project(":player"))` 被打包）。
 
 **该项（手势）已尝试并主动回退（2026-10-06，第二轮独立复核，提交 `09de9d6`）**：本片把手势判定抽成纯状态机 `player/ui/VideoGestureHandler`（+16 例单测全绿，覆盖边缘带/未启用/非播放态/锁屏标记/预览态/横竖择优/半屏分侧/「禁用手势控制」只拦竖滑/长按与滑动互斥/点按与双击窗口/取消不提交），并写了 Compose 指针接线（`Modifier.videoGestureLayer`）。**接线层经独立复核判定「不予交付」：阻断 2 / 高 3 / 中 3 / 低 4，且两个阻断项都是接线层问题、单测 0 覆盖（假信心）**：
 
@@ -770,9 +770,9 @@ fromTopBand=false|UNDECIDED -> 2 次 ← 位移未越起判阈值
 
 | jar | 体量 | 关键内容 |
 | --- | --- | --- |
-| `0db00b04…`（1.86 MB / 3772 类） | 全功能爬虫 jar | 109 个 `com.github.catvod.spider.*`（含 `PanAli/PanQuark/PanUC/PanTianyi/PanXunlei/QuarkPan/UCPan` 等网盘源）、`spider.Init`、`spider.Proxy`、`js.Function`、`parser.{JsonBasic,JsonParallel,JsonSequence,MixDemo,MixWeb}`、`spider.Danmu` |
+| `0db00b04…`（1.86 MB / 3772 类） | 全功能爬虫 jar | 109 个 `com.github.catvod.spider.*`（含 `PanAli/PanQuark/PanUC/PanTianyi/Pan下载模块/QuarkPan/UCPan` 等网盘源）、`spider.Init`、`spider.Proxy`、`js.Function`、`parser.{JsonBasic,JsonParallel,JsonSequence,MixDemo,MixWeb}`、`spider.Danmu` |
 | `b8f0b528…`（1.0 MB / 139 类） | wexguard 加固的网盘/媒体 jar | `spider.Init`、`spider.Proxy`、**`WebDAVGuard`、`AListGuard`、`SambaGuard`、`Emby*`**、`DexNative` + `assets/{wexguard_v7.so,wexguard_v8.so,wexshinidie.guard}` |
-| `源码/1.jar`（4.1 MB / 1413 类） | FishGuard 加固的全功能 jar | 96 个 `com.github.catvod.spider.*`（`AList`、`Pan115/Pan123/PanWebShare*`、`Quark`、`UC`、`XunleiPan`、`TianYi`、`Cloud`、`Bili`、`Libvio`、`XPath*`…）、`spider.Init`/`InitOrigin`/`Proxy`/`ProxyOrigin`、`js.Method`、`utils.FishNative` + `assets/FishGuard-{v7,v8}.so`；**无 `spider.Danmaku`** |
+| `源码/1.jar`（4.1 MB / 1413 类） | FishGuard 加固的全功能 jar | 96 个 `com.github.catvod.spider.*`（`AList`、`Pan115/Pan123/PanWebShare*`、`Quark`、`UC`、`下载模块Pan`、`TianYi`、`Cloud`、`Bili`、`Libvio`、`XPath*`…）、`spider.Init`/`InitOrigin`/`Proxy`/`ProxyOrigin`、`js.Method`、`utils.FishNative` + `assets/FishGuard-{v7,v8}.so`；**无 `spider.Danmaku`** |
 
 - **jar 对宿主的继承关系实测只有一条**：`Superclass: Lcom/github/catvod/crawler/Spider;`（三个 jar 共 179 个 spider 类全部如此），**没有任何 jar 类实现宿主接口、也没有别的宿主父类** ⇒ 全仓只有 `Spider` 必须保持非 final。
 - **`源码/1.jar` 的 Tier A 引用面是三个 jar 的交集子集**（`Spider.<init>()V`、`Spider.init(Context,String)V`、`SpiderDebug.log(String)V`、`SpiderDebug.log(Throwable)V`），无 `Lcom/github/avbox/osc/*` 反向引用 ⇒ 三 jar 独立复核一致。
@@ -851,7 +851,7 @@ fromTopBand=false|UNDECIDED -> 2 次 ← 位移未越起判阈值
 **⚠️ 两处计划未列的隐藏耦合（本轮最重要的发现，拆除类里程碑必查）**：
 1. **`api(...)` 传递依赖会在删模块时整批消失**。`app/build.gradle.kts` 原本只声明 `media3-effect`，其余 9 项 media3（`exoplayer` / `-dash` / `-hls` / `-rtsp` / `datasource` / `datasource-rtmp` / `database` / `ui` / `ffmpeg-decoder`）全靠 `:player` 的 `api` 暴露 ⇒ 直接删模块**编译期即炸**。已按 player 的 `api` 清单逐项搬进 app 的 `implementation`（保持同一运行时类路径）。**判据不是"app 源码有没有 import"，而是"依赖是从哪一层传递来的"** —— `implementation(project(":x"))` 会继承 `:x` 的 `api` 面，但**不继承**它的 `implementation` 面（`okhttp`/`androidx.annotation` 因此不需要搬）。
 2. **清单权限会随模块删除静默消失**。`WAKE_LOCK` 此前**只在 `player/src/main/AndroidManifest.xml` 声明**，而 app 侧 `PlaybackService.kt:431` 用 `PowerManager.newWakeLock(PARTIAL_WAKE_LOCK, …)` ⇒ 删模块后运行时 `SecurityException`，**编译期与单测都发现不了**。已补进 app manifest。**通用做法：删模块前把该模块清单的 `uses-permission`/`uses-feature`/`<application>` 子项逐条与 app manifest 对账**（本例 5 条权限中 app 已有 4 条，只差 `WAKE_LOCK`）。
-3. jniLibs 归位（M7e 复核轮已预告）：`player/src/main/jniLibs/arm64-v8a/{libp2p.so, libxl_stat.so, libxl_thunder_sdk.so}` → `app/src/main/jniLibs/arm64-v8a/`，md5 逐个一致；`P2PClass` 的 `System.loadLibrary("p2p")` 不再断。
+3. jniLibs 归位（M7e 复核轮已预告）：`player/src/main/jniLibs/arm64-v8a/{libp2p.so, 下载库统计库, 下载库原生库}` → `app/src/main/jniLibs/arm64-v8a/`，md5 逐个一致；`P2PClass` 的 `System.loadLibrary("p2p")` 不再断。
 
 **实测**：`:app:assembleDebug` **BUILD SUCCESSFUL**；`:app:testDebugUnitTest` **655 用例 / 0 失败 / 0 错误 / 1 跳过（82 suite）**（与 M9 基线持平 —— 纯拆除无新增用例）；改动文本文件全 LF（`i/crlf` = 0）。
 
@@ -862,7 +862,7 @@ fromTopBand=false|UNDECIDED -> 2 次 ← 位移未越起判阈值
 
 **与计划的偏差（已登记）**：① 计划拆除清单列了「`app/proguard-rules.pro` 中 `xyz.doikki` 相关 keep 规则」，**实测该文件无任何 doikki 专属规则** —— 唯一保留 fork 类的是通用 `-keep public class * extends android.view.View`（`app/proguard-rules.pro:61`），模块删除后自然失效 ⇒ 该项**无事可做**，proguard 未改（原计划把它当成"需清理的 keep 规则"是误判）；② 断言原写「`app/src` 零命中」，实测有 8 行 KDoc（M7e 已声明该口径），按上文保留。
 
-**未验证面（诚实标注）**：① **`:app:assembleRelease` 未跑**（需用户明确许可）⇒ release 侧 dex 清零与 R8/keep 覆盖只做了推理（模块不在类路径 ⇒ 无从保留），未实测；② **真机冒烟未做** —— 重点两条链是 **P2P/迅雷（原生库 `libp2p.so`）** 与 **软解 ffmpeg（`libffmpegJNI.so`）**，另需按 `avbox-playback-service-spec.md` §4 清单走查点播起播/切集/全屏旋转/手势/清晰度/字幕/弹幕/直播/音乐通知/DLNA 投屏；③ 计划前置「M7 全切片真机走查无回归」按 §5 M7 记录**仅手势已走查** ⇒ 本轮删除了 fork 源码这个回退面，回滚须走 `git revert`。
+**未验证面（诚实标注）**：① **`:app:assembleRelease` 未跑**（需用户明确许可）⇒ release 侧 dex 清零与 R8/keep 覆盖只做了推理（模块不在类路径 ⇒ 无从保留），未实测；② **真机冒烟未做** —— 重点两条链是 **P2P/下载模块（原生库 `libp2p.so`）** 与 **软解 ffmpeg（`libffmpegJNI.so`）**，另需按 `avbox-playback-service-spec.md` §4 清单走查点播起播/切集/全屏旋转/手势/清晰度/字幕/弹幕/直播/音乐通知/DLNA 投屏；③ 计划前置「M7 全切片真机走查无回归」按 §5 M7 记录**仅手势已走查** ⇒ 本轮删除了 fork 源码这个回退面，回滚须走 `git revert`。
 
 **顺带同步的文档（M10 直接证伪的断言）**：`skill/avbox-code-review-spec.md` 的"技术栈实况"（语言构成 / 模块清单 / 播放内核 / 排除范围四处）、`skill/SKILL.md` 的迁移规范条目与"契约层"高危约束（去掉 `player` 模块与 `xyz.doikki.videoplayer.**`）、`skill/avbox-playback-service-spec.md` 顶部加"播放栈实现口径已换代"横幅（该 spec 自 M7 起实现层描述已作废，全量重写仍未做）。
 

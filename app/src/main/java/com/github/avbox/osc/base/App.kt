@@ -76,7 +76,6 @@ class App : Application() {
         bootMark("vodImages")
         Thread({
             FileUtils.ensureNoMediaMarker()
-            Probe.trace("boot:cleanPlayerCache") { FileUtils.cleanPlayerCache() }
         }, "exo-cache-boot").start()
         bootMark("onCreateDone")
     }

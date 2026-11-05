@@ -107,8 +107,6 @@ object KVKeys {
     const val LIQUID_GLASS_DISTORTION = "liquid_glass_distortion"
     const val LIQUID_GLASS_TRANSLUCENCY = "liquid_glass_translucency"
     const val LIQUID_GLASS_DISPERSION = "liquid_glass_dispersion"
-    const val THUNDER_IMEI = "thunder_imei"
-    const val THUNDER_MAC = "thunder_mac"
     const val LOCAL_SOURCE_TREES = "local_source_trees"
     const val PICTURE_PRESET = "picture_preset"
     const val PICTURE_SATURATION = "picture_saturation"

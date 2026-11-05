@@ -16,7 +16,7 @@ source: 2026-09-28 按 `skill/avbox-code-review-spec.md` 的「架构与分层 /
 | 指标 | 实测 | 说明 |
 | --- | --- | --- |
 | 文件 > 500 行 | **36 个**（其中 15 个 > 800） | PlaybackController 2023 / SourceViewModel 1946 / PlayContainer 1839 / ApiConfig 1794 / ComposeVideoController.kt 1426 / LivePlayActivity.kt 1279 |
-| 方法 > 100 行 | **17 处**（±10 行估算） | getSort 250 / DetailContent 198 / initView 157 / getList 145 / play(boolean) 129 / Thunder.play 123 / initFetch 111 / RemoteServer.serve 111 … |
+| 方法 > 100 行 | **17 处**（±10 行估算） | getSort 250 / DetailContent 198 / initView 157 / getList 145 / play(boolean) 129 / 下载模块.play 123 / initFetch 111 / RemoteServer.serve 111 … |
 | 巨型匿名类/内联块 >80 行 | 6+ 处 | PlayContainer.viewBridge 277 / PlaybackEngine.HeadlessView 235 / ProtectedInitJar.Dex 180 / Composable 内联块 150+ |
 | 重复模板 `newSingleThreadExecutor + submit + get(timeout) + shutdown` | **19 处 / 10 文件** | SourceViewModel 占 6 处；超时口径 4 种（30s / 20s / 6s / playTimeoutSeconds） |
 | 门面被依赖 | `ApiConfig.get()` 31 文件 110 处；`.getInstance()` 116 处 / 50 文件；静态单例入口 7 个 | KV 门面 50 文件 238 处属设计预期，不计异常 |
@@ -79,10 +79,10 @@ source: 2026-09-28 按 `skill/avbox-code-review-spec.md` 的「架构与分层 /
 
 **执行状态（2026-09-28）**：
 
-- 已落地（3 个本地 commit，未推远程）：`PlayContainer` 的 `viewBridge`(277) 与 `VodControlListener`(133) → 同文件具名内部类 `ViewBridge` / `ControlListener`；`Thunder.java:116` 的 109 行匿名 `Runnable` → 具名嵌套类 `ParseTask`（`parse()` 117 → 9 行）；`BottomSheet.kt:367` 的 154 行内联块 → 具名 Composable `SheetSurface`（`SheetOverlay` 226 → 约 90 行）。
+- 已落地（3 个本地 commit，未推远程）：`PlayContainer` 的 `viewBridge`(277) 与 `VodControlListener`(133) → 同文件具名内部类 `ViewBridge` / `ControlListener`；`下载模块.java:116` 的 109 行匿名 `Runnable` → 具名嵌套类 `ParseTask`（`parse()` 117 → 9 行）；`BottomSheet.kt:367` 的 154 行内联块 → 具名 Composable `SheetSurface`（`SheetOverlay` 226 → 约 90 行）。
 - **口径更正**：本列表里的 `PlaybackEngine.HeadlessView`(235) 与 `ProtectedInitJar.Dex`(180) 核对后**本就是具名类**（内部类/静态嵌套类），无需处理；全库 >80 行匿名块实际只有上述 3 处 + `PlaybackController.java:1075` 的 107 行匿名 `Observer` —— 后者按阶段 7 归属本阶段未动。
 - **文件边界外提已在同日作为「阶段 2b」完成（commit `54c8f07`，已确认）**：两个适配器 → `ui/player/PlayContainerViewBridge.java`(302 行) 与 `PlayContainerControlListener.java`(156 行)，各持 `container` 引用；`PlayContainer` 1843 → **1424 行**（−419）。代价 = **23 个成员由 `private` 降为包级**（字段 7 + 方法 16）——对本 § 硬地板「每文件 2–4 个」的一次明示例外；因暴露面仅限 `ui.player` 包（包内另两个文件不使用这些成员）且由已确认，接受。
-- 验证：`assembleDebug` + `testDebugUnitTest`（44 类 / 364 用例）全绿；逐行等价性脚本 0 丢失 / 0 新增（PlayContainer 仅 2 行包装差、Thunder 仅 `}});` 一行、BottomSheet 仅调用点与签名行）；`adb install` 被设备侧拒绝（`INSTALL_FAILED_ABORTED`），走查待已确认安装。
+- 验证：`assembleDebug` + `testDebugUnitTest`（44 类 / 364 用例）全绿；逐行等价性脚本 0 丢失 / 0 新增（PlayContainer 仅 2 行包装差、下载模块 仅 `}});` 一行、BottomSheet 仅调用点与签名行）；`adb install` 被设备侧拒绝（`INSTALL_FAILED_ABORTED`），走查待已确认安装。
 - 归档见 `skill/history/features.md` 2026-09-28 阶段 2 条目。
 
 - 目标：消掉 >80 行匿名类/内联块。
@@ -97,14 +97,14 @@ source: 2026-09-28 按 `skill/avbox-code-review-spec.md` 的「架构与分层 /
 
 - **口径更正（第三条）**：本节的「19 处模板 / 10 文件」是 `Select-String 'Executors\.newSingleThreadExecutor\(\)'` 的**字面出现次数**，不是模板实例数。逐处核对后真正符合「一次性 executor + `submit` + `get(timeout)` + `shutdown`」的只有 **6 处**（`SourceViewModel` getSort / getList / getHomeRecList / getDetail / getPlay + `LiveProxyLoader` 直播 py/js 分支）；`SourceViewModel` 第 6 处（推送代理）是 `CountDownLatch.await(15, …)`，与 `Callable` 不同形。
 - 已落地两笔（本地 commit，未推远程）：`1026fe5` 抽模板（`util/BoundedCall.kt` + 3 例单测，各点原超时值一字未动）；`a034ac7` 超时口径统一（站点数据请求取 `SourceBean.getPlayTimeoutSeconds()`，显式覆盖保留 6s / 10s / 120s / `liveConnectTimeoutSeconds`）。口径由 4 种收敛为 2 种（站点级默认 + 显式覆盖）。
-- **本节「涉及文件」余下不改**，逐条理由：`JsSpider` 的 3 处有界等待必须落在 QuickJS 专属单线程（线程亲和），且超时不能 cancel，已有私有 `submitAndWait`；`ApiConfig.warmOneSource` 是预热队列「独占线程 + 单项 10s 不打断」语义，换一次性线程会变成并发预热；`SourceViewModel.getFixUrl` 是共享池 `spThreadPool` 上的有界等待（超时回退原值，非"新建-等待-销毁"）；`SpiderLoader`（jar 装载 / 弹幕搜索）、`PlayUrlResolver`（解析池）、`Thunder`（解析池）、`DanmuLoadController`（弹幕解析）、`ConfigManagePage.kt`（副本清理）、`LOG`（落盘）的 `newSingleThreadExecutor()` 均为长生命周期池或投递即走，全库无 `get(timeout)`。
+- **本节「涉及文件」余下不改**，逐条理由：`JsSpider` 的 3 处有界等待必须落在 QuickJS 专属单线程（线程亲和），且超时不能 cancel，已有私有 `submitAndWait`；`ApiConfig.warmOneSource` 是预热队列「独占线程 + 单项 10s 不打断」语义，换一次性线程会变成并发预热；`SourceViewModel.getFixUrl` 是共享池 `spThreadPool` 上的有界等待（超时回退原值，非"新建-等待-销毁"）；`SpiderLoader`（jar 装载 / 弹幕搜索）、`PlayUrlResolver`（解析池）、`下载模块`（解析池）、`DanmuLoadController`（弹幕解析）、`ConfigManagePage.kt`（副本清理）、`LOG`（落盘）的 `newSingleThreadExecutor()` 均为长生命周期池或投递即走，全库无 `get(timeout)`。
 - 数值统一的实际变化：getSort 30→15、getHomeRecList 20→15、getDetail（非 fallback）30→15、`getFixUrl` 默认 20→15；getList / getPlay 本就取站点值不变。**慢源的必然表现（走查判据补充）**：首页 sort 15s 落空态且不再命中 `HomeViewModel` 的 20s 看门狗（挂死源失去「Error + 重试」态）；详情 15s 落 `handleEmptyDetail(null)` ⇒ 可能**自动换站**；`getFixUrl` 超时返回**原始 extend** 而非空；jar 首次装载（下载+init 都在 `getCSP` 内）>15s 时首页/详情需重试一次。慢源若回归：把该源配置 `timeout` 调到 30–60，或单独 revert `a034ac7`。
 - 验证：`assembleDebug` + `testDebugUnitTest`（45 类 / 367 用例 / 0 失败）；已装机（1.1.6）；走查未做。
 - 归档见 `skill/history/features.md` 2026-09-28 阶段 3 条目。
 
 - 目标：19 处模板收敛为 1 个有界调用工具。
 - 修改内容：新增 `app/src/main/java/com/github/tvbox/osc/util/BoundedCall.kt`（Kotlin object，`@JvmStatic fun <T> call(task: Callable<T>, timeoutMs: Long, tag: String): T?`，超时返回 null 并记日志；新代码用 Kotlin，Java 侧经 `@JvmStatic` 调用）；**先只抽模板、保留各点原超时值**；数值统一作为独立 commit。
-- 涉及文件：`viewmodel/SourceViewModel.java`（6 处）、`api/SpiderLoader.java`、`player/PlayUrlResolver.java`、`util/thunder/Thunder.java`、`ui/activity/LiveProxyLoader.kt`、`player/danmu/DanmuLoadController.java`、`api/ApiConfig.java`、`catvod/crawler/js/JsSpider.java`、`ui/page/ConfigManagePage.kt`。
+- 涉及文件：`viewmodel/SourceViewModel.java`（6 处）、`api/SpiderLoader.java`、`player/PlayUrlResolver.java`、`util/下载模块/下载模块.java`、`ui/activity/LiveProxyLoader.kt`、`player/danmu/DanmuLoadController.java`、`api/ApiConfig.java`、`catvod/crawler/js/JsSpider.java`、`ui/page/ConfigManagePage.kt`。
 - 风险：中（超时值改动会波及慢源可用性 ⇒ 与抽模板分两个 commit）。
 - 收益：模板 19 → 1；口径从 4 种 → 2 种（站点级默认 + 显式覆盖）。
 - 验证：构建 + 单测；真机走查换源/详情/取流不回归。
@@ -130,17 +130,17 @@ source: 2026-09-28 按 `skill/avbox-code-review-spec.md` 的「架构与分层 /
 
 **执行状态（2026-09-28）**：
 
-- 已落地（12 个本地 commit，未推远程）：`39342b0` 共享取数支撑（`SourceHelper`，199 行）→ `abeed50` 推送详情后处理（`PushDetailResolver`，263）→ `22c6b3d` 解析与分投（`SourceResultParser`，242）→ `44a95fd` push:// 解析（`PushUrlParser`，117）→ `d036b7e` 列表取数（`ListLoader`，258）→ `3688b14` 首页取数（`SortLoader`，349）→ `47b4b59` 详情取数（`DetailLoader`，202）→ `1beef65` 搜索取数（`SearchLoader`，156）→ `7b5d66f` 取流（`PlayLoader`，328）→ `aa5b132` `sortCache` 加锁（⑫）→ `c7d88ba` 清掉重复的 `checkThunder` 委托 → `6a52f96` 收紧可见性 + 修注释口径。
+- 已落地（12 个本地 commit，未推远程）：`39342b0` 共享取数支撑（`SourceHelper`，199 行）→ `abeed50` 推送详情后处理（`PushDetailResolver`，263）→ `22c6b3d` 解析与分投（`SourceResultParser`，242）→ `44a95fd` push:// 解析（`PushUrlParser`，117）→ `d036b7e` 列表取数（`ListLoader`，258）→ `3688b14` 首页取数（`SortLoader`，349）→ `47b4b59` 详情取数（`DetailLoader`，202）→ `1beef65` 搜索取数（`SearchLoader`，156）→ `7b5d66f` 取流（`PlayLoader`，328）→ `aa5b132` `sortCache` 加锁（⑫）→ `c7d88ba` 清掉重复的 `check下载模块` 委托 → `6a52f96` 收紧可见性 + 修注释口径。
 - 实测：`SourceViewModel` **1873 → 168 行**；9 个同包新文件共 2114 行（原文件搬迁后的净增 = 类声明/构造/import/javadoc）。
-- **口径更正（第五条）**：本节的「6 个同包 sibling」实际落成 **5 个 Loader + `PushUrlParser`（6 个按计划）＋ 3 个支撑类**（`SourceHelper`/`SourceResultParser`/`PushDetailResolver`）。多出的 3 个不是可选拆分：`xml`/`json`/`sortXml`/`sortJson` 的解析-分投层被 5 个 Loader 共用，`push`/迅雷的详情后处理被解析层与门面共用，`siteGet`/`absXml`/`getFixUrl` 被 6 处共用 —— 留在门面等于再造一个 ~430 行的门面类，与「门面只做转发」的目标相反。同包内以包级静态方法复用是 Java 无 `friend` 时的可达解。
+- **口径更正（第五条）**：本节的「6 个同包 sibling」实际落成 **5 个 Loader + `PushUrlParser`（6 个按计划）＋ 3 个支撑类**（`SourceHelper`/`SourceResultParser`/`PushDetailResolver`）。多出的 3 个不是可选拆分：`xml`/`json`/`sortXml`/`sortJson` 的解析-分投层被 5 个 Loader 共用，`push`/下载模块的详情后处理被解析层与门面共用，`siteGet`/`absXml`/`getFixUrl` 被 6 处共用 —— 留在门面等于再造一个 ~430 行的门面类，与「门面只做转发」的目标相反。同包内以包级静态方法复用是 Java 无 `friend` 时的可达解。
 - **第二条口径更正**：计划的「2 个线程池留在门面、经构造传入 sibling」改为**池声明落 `SourceHelper`，门面保留同名公开别名** `public static final ExecutorService spThreadPool = SourceHelper.SPIDER_POOL;`（签名不变）。原因：构造注入两个 `ExecutorService` 要给 7 个类各加两个参数，而静态别名零成本；若池留在门面、sibling 直接引用 `SourceViewModel.spThreadPool`，反而造出 sibling → 门面的文件级环。
-- **门面 API 逐条核对**：改前 8 个 public 字段（7 个结果通道 + `spThreadPool`）与 13 个 public 方法（`getSort`×2 / `getList` / `getDetail`×2 / `action` / `getSearch`×2 / `getPlay` / `getPlayForPreload` / `cancelPlayRequest` / `checkThunder` / `clearRuntimeCache`，另有构造器）**逐条保留**：`public` 行集比对后唯一差异 = `spThreadPool` 的初始化表达式（池实例本身同一个）。匿名类内的 `public` 成员随匿名类一起搬入 sibling，不计门面 API。
+- **门面 API 逐条核对**：改前 8 个 public 字段（7 个结果通道 + `spThreadPool`）与 13 个 public 方法（`getSort`×2 / `getList` / `getDetail`×2 / `action` / `getSearch`×2 / `getPlay` / `getPlayForPreload` / `cancelPlayRequest` / `check下载模块` / `clearRuntimeCache`，另有构造器）**逐条保留**：`public` 行集比对后唯一差异 = `spThreadPool` 的初始化表达式（池实例本身同一个）。匿名类内的 `public` 成员随匿名类一起搬入 sibling，不计门面 API。
 - 封装代价：门面自身 **0 降级**（对比阶段 2b 的 23、阶段 4 的 7）；代价转为「新增 sibling 之间」的包级成员 **40 个**（`SourceHelper` 10 / `PushUrlParser` 9 / `SourceResultParser` 7 / `ListLoader` 3 / `SortLoader` 2 / `DetailLoader` 2 / `SearchLoader` 2 / `PlayLoader` 3 / `PushDetailResolver` 2），暴露面限 `viewmodel` 包。这是拆分的固有代价，记录在案。
 - **顺带加锁（⑫）**：`sortCache` 是 access-order `LinkedHashMap`（`get` 也改结构）而读写它的有多个池线程；`SortLoader` 的 `get`/`put` 与门面 `clearRuntimeCache` 现在都走 `synchronized (sortCache)`，持锁期间不做 IO。
 - **顺带删除**：两处注释掉的死代码（`absXml` 里的旧循环 7 行、`json` 里的测试 JSON 17 行）= 24 行，其余搬运逐字保留（含 `// i18n: keep` 与日期注释 —— 注释红线存量仍按 ⑪ 留给专项）。
 - 验证（每笔落地跑一次）：`assembleDebug` + `testDebugUnitTest`（**45 类 / 367 用例 / 0 失败**）；每笔用「旧文件 `git show HEAD:` 逐行去空白 + 多重集比对」，并做「67 个方法声明的存在性」与「public 行集」双卡口；累计口径下 111 条 missing 行全部为调用点前缀/可见性/新增类声明与上述 24 行死注释，无语句丢失。
-- 实施踩坑（供后续阶段避开）：① 用脚本切「区域」时必须**先切片、后改可见性**，我曾把改过的切片再拿去 `str.replace` 删除原文，替换静默失败（Python 的 `replace` 不报错），导致门面里同时存在定义与 `owner.` 前缀调用；② 结束标记必须在全库查重（`checkThunder` 委托恰好落在两个切片边界上，被带进了 `SourceResultParser`，成为死代码后才发现）。两道卡口（编译 + public 行集 + 行集比对）把这两个问题都拦住了。
-- 走查判据（未做，属真机环节）：t4 源首页/详情/起播不卡；换源后 sortCache 清理仍生效；推送链接与磁力（迅雷）两条特殊详情路径不回归。
+- 实施踩坑（供后续阶段避开）：① 用脚本切「区域」时必须**先切片、后改可见性**，我曾把改过的切片再拿去 `str.replace` 删除原文，替换静默失败（Python 的 `replace` 不报错），导致门面里同时存在定义与 `owner.` 前缀调用；② 结束标记必须在全库查重（`check下载模块` 委托恰好落在两个切片边界上，被带进了 `SourceResultParser`，成为死代码后才发现）。两道卡口（编译 + public 行集 + 行集比对）把这两个问题都拦住了。
+- 走查判据（未做，属真机环节）：t4 源首页/详情/起播不卡；换源后 sortCache 清理仍生效；推送链接与磁力（下载模块）两条特殊详情路径不回归。
 - 归档见 `skill/history/features.md` 2026-09-28 阶段 5 条目。
 - **复查与修复轮（2026-09-28）**：阶段 5+6 的对抗性复查 + 修复记录见 `skill/review/review-20260928-batch1.md`；其中 F6 补齐把 `getSort`/`getPlayPrepared`/`getList`/`getDetail`/`getSearch` 五个超长方法按 type 分流拆完（附录 A 的「方法 >100 行」36 → 31），F7 补了 9 条取数链路单测（单测基线 367 → 376）。
 

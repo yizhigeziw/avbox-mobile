@@ -189,7 +189,7 @@ DV 双层盘的 PMT 同时有主层(3840×2160)和增强层(1920×1088),`Primary
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB="/c/Users/Administrator/AppData/Local/Android/Sdk/platform-tools/adb.exe"
+ADB="$ANDROID_HOME/platform-tools/adb.exe"
 
 "$ADB" devices
 "$ADB" -s 127.0.0.1:16384 exec-out run-as com.github.avbox.osc cat files/preload_debug.log > cur.log

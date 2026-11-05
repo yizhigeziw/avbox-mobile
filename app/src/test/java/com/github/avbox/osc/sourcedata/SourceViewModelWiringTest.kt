@@ -22,7 +22,7 @@ class SourceViewModelWiringTest {
         val resolver = field<PushDetailResolver>(vm, "pushDetailResolver")
 
         assertSame("search 通道身份不符 ⇒ 搜索会走错分投分支", vm.searchResult, field(parser, "searchResult"))
-        assertSame("detail 通道身份不符 ⇒ 详情会跳过 push/迅雷后处理", vm.detailResult, field(parser, "detailResult"))
+        assertSame("detail 通道身份不符 ⇒ 详情会走错后处理", vm.detailResult, field(parser, "detailResult"))
         assertSame("resolver 也必须拿同一个 detail 通道(它自己回投结果)", vm.detailResult, field(resolver, "detailResult"))
         assertSame("解析器与 resolver 必须是同一个 resolver 实例", resolver, field(parser, "pushDetailResolver"))
     }

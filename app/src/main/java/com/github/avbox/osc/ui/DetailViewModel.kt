@@ -31,7 +31,6 @@ import com.github.avbox.osc.util.TmdbImages
 import com.github.avbox.osc.util.HistoryHelper
 import com.github.avbox.osc.util.AppLog
 import com.github.avbox.osc.util.LanguageManager
-import com.github.avbox.osc.sourcedata.Thunder
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CompletableDeferred
@@ -510,7 +509,6 @@ class DetailViewModel : ViewModel(), TmdbPosterCache {
         }
         val next = DetailFullScreenSlide.exit(slideState()) ?: return
         applySlideState(next)
-        Thunder.cancelPendingParse()
         _rotating.value = DetailPlaybackCommands.exitFullScreenState(facts).second
     }
 
@@ -1068,7 +1066,6 @@ class DetailViewModel : ViewModel(), TmdbPosterCache {
         cancelDetailTimeout()
         sourceViewModel.cancelDetail()
         searchCaller.cancelSearch()
-        Thunder.cancelPendingParse()
     }
 
     private fun candidateKey(video: Movie.Video): String =

@@ -21,7 +21,6 @@ import com.github.avbox.osc.util.ImgUtil
 import com.github.avbox.osc.util.KV
 import com.github.avbox.osc.util.AppLog
 import com.github.avbox.osc.util.MD5
-import com.github.avbox.osc.sourcedata.Thunder
 import org.json.JSONException
 import org.json.JSONObject
 import java.net.URLEncoder
@@ -205,30 +204,6 @@ class PlaybackStarter(private val host: Host) {
             host.migrateProgressOnLineSwitch()
             host.inheritProgressIfNeeded()
             host.view()?.setSubtitleViewVisible(false)
-        }
-
-        val seriesUrl = requireNotNull(vs.url)
-        val thunderGen = host.resolverCurrentGen()
-        val magnetPending = Thunder.isMagnetUrl(seriesUrl)
-        if (Thunder.play(seriesUrl, object : Thunder.ThunderCallback {
-                override fun status(code: Int, info: String) {
-                    host.view()?.showTip(info, code >= 0, code < 0)
-                }
-
-                override fun list(urlMap: MutableMap<Int, String>) {
-                }
-
-                override fun play(url: String) {
-                    playUrl(thunderGen, url, null)
-                }
-            })
-        ) {
-            host.view()?.showParse(false)
-            if (magnetPending && !prepareOnly) {
-                host.cancelPlayTimeout()
-                host.view()?.showTip(PlaybackController.str(R.string.thunder_parsing), true, false)
-            }
-            return
         }
 
         if (host.preloadConsumeResult(host.progressKey())) return

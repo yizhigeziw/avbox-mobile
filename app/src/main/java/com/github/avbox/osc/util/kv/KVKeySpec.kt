@@ -61,8 +61,6 @@ class KVKeySpec : KVDecoder.TypeRegistry {
             register(KVKeys.ANIME4K_DEBLUR, false)
             register(KVKeys.HOME_HOT, "")
             register(KVKeys.HOME_HOT_DAY, "")
-            register(KVKeys.THUNDER_IMEI, "")
-            register(KVKeys.THUNDER_MAC, "")
             register(KVKeys.TMDB_API_KEY, "")
             register(KVKeys.TMDB_API_BASE, "")
             register(KVKeys.TMDB_IMAGE_BASE, "")

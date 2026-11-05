@@ -557,7 +557,7 @@
 - **无 Hawk、无数据迁移**(2026-09-13 起):应用未发布、无存量用户,`com.orhanobut:hawk` 与 Conceal 已从依赖树移除,首装即原生 MMKV;`proguard` 的 hawk keep 规则一并删除。**gson 版本约束随之解除**,可自由升级。
 - **失败不再静默**:`put` 返 false 且打 `echo-kv` 日志;集合读取区分"键不存在"(返回默认值,正常)与"解不出类型"(打日志 + 返回默认值)。取真机日志:`adb shell run-as com.github.avbox.osc cat files/preload_debug.log`(该 ROM 吞 logcat,`FILE_LOG_PREFIXES` 已含 `echo-kv`)。
 - **⚠️ 存在性判定 != 取默认值**:`KV.contains(key)` 才是判存在,`KV.get(key, def)` 拿到的 def 分不清"键不存在"与"存的就是这个值"。两个已踩过的坑:① `Hawk.get(key, def)` 在旧库迁移时把 def 当值写入了 KV,`search_threads=0` 直接崩在 `Semaphore(0)`;② MMKV `getValueSize` 对不存在的键返回 **0 而非 -1**(`size_t` 语义),拿它判存在会恒不成立并刷日志。**迁移/统计类代码务必核对键数量守恒**(老库键数 ≈ 新库键数),数量对不上就是数据写坏的第一个信号。
-- **全仓无 SharedPreferences(2026-09-15)**:原有 2 处独立 SP 已补迁入 KV —— ①雷电标识 `thunder_imei`/`thunder_mac`(键常量 `KVKeys.THUNDER_IMEI`/`THUNDER_MAC`,替代 SP 文件 `rand_thunder_id`);②轨道记忆(2026-09-25 起为 `track_mem_<sourceKey>@<vodId>_audio|video|text`,动态键;旧 `audio_track_<progressKey>_*` 已废弃、不再读写,见 §6.1 与 `history/features.md` 同日条目;替代 SP 文件 `audio_track_prefs`;`TrackMemory` 为无状态静态工具类,不持 Context/单例)。
+- **全仓无 SharedPreferences(2026-09-15)**:原有 2 处独立 SP 已补迁入 KV —— ①下载标识 `下载标识`/`下载标识`(键常量 `KVKeys.下载标识`/`下载标识`,替代 SP 文件 `rand_下载标识`);②轨道记忆(2026-09-25 起为 `track_mem_<sourceKey>@<vodId>_audio|video|text`,动态键;旧 `audio_track_<progressKey>_*` 已废弃、不再读写,见 §6.1 与 `history/features.md` 同日条目;替代 SP 文件 `audio_track_prefs`;`TrackMemory` 为无状态静态工具类,不持 Context/单例)。
 
 - **观看痕迹类动态键(2026-09-26)**:`playback_progress` / `episode_totals`(均为 `源|片id` → String 的整表 map)与 `progress_index_<源>|<片id>`(String JSON 载荷 `{at,eps}`)。三者沿用动态键约定(同 `track_mem_*`:不登记 `KVKeySpec`,**调用侧必须带具体默认值**)—— 默认值一旦写成 `null` 或省略,读侧就拿不到元素类型、退化成 `JsonElement` 节点树。写入与清理口径见 §6.16。
 

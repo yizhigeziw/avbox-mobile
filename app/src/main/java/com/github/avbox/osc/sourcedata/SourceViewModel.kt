@@ -133,10 +133,6 @@ class SourceViewModel : ViewModel() {
         playLoader.cancelPlayRequest()
     }
 
-    fun checkThunder(data: AbsXml, index: Int) {
-        pushDetailResolver.checkThunder(data, index)
-    }
-
     override fun onCleared() {
         super.onCleared()
     }

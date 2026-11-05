@@ -275,17 +275,6 @@ object FileUtils {
         }
     }
 
-    @JvmStatic
-    fun cleanPlayerCache() {
-        val thunderCachePath = cachePath() + "/thunder/"
-        val thunderCacheDir = File(thunderCachePath)
-        try {
-            if (thunderCacheDir.exists()) cleanDirectory(thunderCacheDir)
-        } catch (e: Exception) {
-            AppLog.e("FileUtils", e)
-        }
-    }
-
     private const val EXTERNAL_CACHE_KEEP_DIR = "config"
 
     @JvmStatic

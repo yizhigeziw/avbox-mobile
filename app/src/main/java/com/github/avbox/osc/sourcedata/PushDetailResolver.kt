@@ -8,14 +8,11 @@ import com.github.avbox.osc.R
 import com.github.avbox.osc.api.ApiConfig
 import com.github.avbox.osc.bean.AbsJson
 import com.github.avbox.osc.bean.AbsXml
-import com.github.avbox.osc.bean.Movie
 import com.github.avbox.osc.bean.SourceBean
 import com.github.avbox.osc.util.AppContextHolder
 import com.github.avbox.osc.util.BoundedCall
 import com.github.avbox.osc.util.AppLog
 import com.github.avbox.osc.util.LanguageManager
-import com.github.avbox.osc.util.RegexUtils
-import com.github.avbox.osc.sourcedata.Thunder
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CancellationException
@@ -123,78 +120,6 @@ class PushDetailResolver(private val gson: Gson, private val detailResult: Sourc
         } catch (e: Exception) {
             AppLog.e("SourceViewModel", e)
             null
-        }
-    }
-
-    fun checkThunder(data: AbsXml, index: Int) {
-        var thunderParse = false
-        val videoList = data.movie?.videoList
-        if (videoList != null && videoList.size == 1) {
-            val video = videoList[0]
-            val infoList = video.urlBean?.infoList
-            if (infoList != null) {
-                var hasThunder = false
-                thunderLoop@ for (urlInfo in infoList) {
-                    val beanList = urlInfo.beanList ?: continue
-                    for (infoBean in beanList) {
-                        if (infoBean.url != null && Thunder.isSupportUrl(infoBean.url)) {
-                            hasThunder = true
-                            break@thunderLoop
-                        }
-                    }
-                }
-                if (hasThunder) {
-                    thunderParse = true
-                    AppLog.i("echo-detail-prerender key=" + data.sourceKey)
-                    detailResult.postValue(data)
-                    Thunder.parse(requireNotNull(AppContextHolder.context()) { "app context not initialized" }, video.urlBean, object : Thunder.ThunderCallback {
-                        override fun status(code: Int, info: String) {
-                            if (code >= 0) {
-                                AppLog.i(info)
-                            } else {
-                                val first = if (infoList.isEmpty()) null else infoList[0]
-                                val firstBeanList = first?.beanList
-                                if (firstBeanList != null && firstBeanList.isNotEmpty()) {
-                                    firstBeanList[0].name = info
-                                }
-                                detailResult.postValue(data)
-                            }
-                        }
-
-                        override fun list(urlMap: MutableMap<Int, String>) {
-                            for (key in urlMap.keys) {
-                                if (key < 0 || key >= infoList.size) continue
-                                val urlInfo = infoList[key]
-                                val playList = urlMap[key] ?: continue
-                                urlInfo.urls = playList
-                                val str = RegexUtils.getPattern("#").split(playList)
-                                val infoBeanList = ArrayList<Movie.Video.UrlBean.UrlInfo.InfoBean>()
-                                for (s in str) {
-                                    if (s.contains("$")) {
-                                        val ss = s.split(Regex("\\$"), 2)
-
-                                        if (ss.isNotEmpty()) {
-                                            if (ss.size >= 2) {
-                                                infoBeanList.add(Movie.Video.UrlBean.UrlInfo.InfoBean(ss[0], ss[1]))
-                                            } else {
-                                                infoBeanList.add(Movie.Video.UrlBean.UrlInfo.InfoBean((infoBeanList.size + 1).toString(), ss[0]))
-                                            }
-                                        }
-                                    }
-                                }
-                                urlInfo.beanList = infoBeanList
-                            }
-                            detailResult.postValue(data)
-                        }
-
-                        override fun play(url: String) {
-                        }
-                    })
-                }
-            }
-        }
-        if (!thunderParse && index == 0) {
-            detailResult.postValue(data)
         }
     }
 

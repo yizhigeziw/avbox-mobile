@@ -1070,13 +1070,13 @@ P1 最后两组。至此**调度层(会话/取流/解析/嗅探/重试/换线/�
 ## SP 残留清零:2 处独立 SharedPreferences 迁入 KV/MMKV + 死代码清理(2026-09-15)
 
 - **背景与复核**:按多种模式全仓复核(`SharedPref*` / `getSharedPreferences|getDefaultSharedPreferences|getPreferences|PreferenceManager|MODE_PRIVATE|MODE_MULTI_PROCESS` / `prefs.edit()|.commit()` / `androidx.preference|EditTextPreference|ListPreference|SwitchPreference|CheckBoxPreference` / `EncryptedSharedPreferences|MasterKey` / `Hawk|orhanobut` / `shared_prefs|SPUtils|PREFS`),确认真 SP 仅 2 处(与 `avbox-kv-mmkv-spec.md` §1.1、`avbox-mobile-ui-spec.md` §6.7 的记载一致);`player/`、`quickjs/`、`pyramid/` 与 `res/xml` 均 0 处;`PreferenceSettingsActivity/Page`、`SettingsPage` 只是"偏好设置"页命名(读写走 KV);`KVKeySpecTest` 里的 SharedPreferences 只是注释。
-- **迁 1 — `util/thunder/Thunder.java`(迅雷下载库的伪造设备标识)**:SP 文件 `rand_thunder_id`(键 `imei`/`mac`,`commit()` 同步写,"读不到就生成再写回")整体删除;改为 `KV.get(HawkConfig.THUNDER_IMEI, "")` + `KV.put(...)`,判定由 `== null` 改 `TextUtils.isEmpty`(空串即"未生成");键常量新增在 `HawkConfig`(`THUNDER_IMEI`/`THUNDER_MAC`)。调用点(`Thunder.init()` ← `parse()`/`play()`)不变。
+- **迁 1 — `util/下载模块/下载模块.java`(下载模块下载库的伪造设备标识)**:SP 文件 `rand_下载标识`(键 `imei`/`mac`,`commit()` 同步写,"读不到就生成再写回")整体删除;改为 `KV.get(HawkConfig.下载标识, "")` + `KV.put(...)`,判定由 `== null` 改 `TextUtils.isEmpty`(空串即"未生成");键常量新增在 `HawkConfig`(`下载标识`/`下载标识`)。调用点(`下载模块.init()` ← `parse()`/`play()`)不变。
 - **迁 2 — `util/AudioTrackMemory.java`(音轨记忆)**:SP 文件 `audio_track_prefs` 删除;键加 `audio_track_` 前缀替代原 SP 文件名、避免与全局 KV 键撞名 —— `audio_track_<progressKey>_exo_group`/`_exo_track`/`_ijk_track`;值恒为 int 且调用侧带 `-1` 默认值 ⇒ 按默认值类型即可还原,**无需登记 `KVKeySpec`**(动态键本来也无法逐键登记)。
-- **顺带删除的死代码()**:①`AudioTrackMemory` 的单例(`instance`/`getInstance(Context)`)、`prefs` 字段、`PREFS_NAME` 常量、`Context`/`SharedPreferences` import ⇒ 该类变成**无状态静态工具类**;②`Thunder` 的死 import `android.util.Log`(全文无 `Log.` 调用);③`IjkMediaPlayer`/`ExoPlayer` 各自的 `private static AudioTrackMemory memory` 字段与构造函数里的 `getInstance` 赋值(调用点改 `AudioTrackMemory.save`/`ijkLoad`/`exoLoad` 静态调用);④`KVKeySpecTest` 注释里最后一处"不读 SharedPreferences"字样。
+- **顺带删除的死代码()**:①`AudioTrackMemory` 的单例(`instance`/`getInstance(Context)`)、`prefs` 字段、`PREFS_NAME` 常量、`Context`/`SharedPreferences` import ⇒ 该类变成**无状态静态工具类**;②`下载模块` 的死 import `android.util.Log`(全文无 `Log.` 调用);③`IjkMediaPlayer`/`ExoPlayer` 各自的 `private static AudioTrackMemory memory` 字段与构造函数里的 `getInstance` 赋值(调用点改 `AudioTrackMemory.save`/`ijkLoad`/`exoLoad` 静态调用);④`KVKeySpecTest` 注释里最后一处"不读 SharedPreferences"字样。
 - **验证**:`:app:assembleDebug` + `:app:testDebugUnitTest` 均 exit 0(仅既有 javac 泛型/弃用提示);`read_lints` 0 诊断;全仓 grep `SharedPref` 生产代码 0 处(只剩注释里的历史溯源说明)。改动面 6 文件(+48/−52)。
-- **行为差异(仅两点,均无损)**:①迅雷设备标识不导入旧值、首次重新生成(伪造值;应用未发布无存量用户 —— 与 2026-09-13 Hawk→MMKV 同一决策,未用 `MMKV.importFromSharedPreferences`);②音轨记忆重置(下次播放回默认音轨,可再生成)。设备上遗留的 `shared_prefs/rand_thunder_id.xml`、`audio_track_prefs.xml` 不再被读写(未写清理代码,卸载重装即消失)。
+- **行为差异(仅两点,均无损)**:①下载模块设备标识不导入旧值、首次重新生成(伪造值;应用未发布无存量用户 —— 与 2026-09-13 Hawk→MMKV 同一决策,未用 `MMKV.importFromSharedPreferences`);②音轨记忆重置(下次播放回默认音轨,可再生成)。设备上遗留的 `shared_prefs/rand_下载标识.xml`、`audio_track_prefs.xml` 不再被读写(未写清理代码,卸载重装即消失)。
 - **未做**:真机验证(本机残留 xml 与回归未跑);~~未在 release/R8 后复验~~(见下条补验证)。
-- **审查与补验证(2026-09-15)**:逐点核对 —— ①键映射逐方法对照(含 `save(2 参)` 与 `ijkLoad` 的 `_ijk`+`_track` 组合)一致,仅统一加前缀;②`KV.get(key,-1)` 的 int 拆箱无 null 路径(`KVCodec.decode` 三处返回均兜底 defaultValue),且"未登记键 + 调用侧具体默认值"契约有既有单测覆盖(`KVDecoderTest.primitiveRoundTrip` / `callerConcreteTypeWins_forDynamicKeysOutsideRegistry`);③`javap` 字节码核对 `AudioTrackMemory` = `public final class` + 私有构造 + 4 个静态方法 + 3 个常量,无残留 `prefs`/`instance`/`PREFS_NAME`;④全仓 `memory` 在两播放器 0 残留、`.pro` 0 处引用、`rand_thunder_id`/`audio_track_prefs` 仅存于注释与文档;⑤补跑 `:app:assembleRelease`(R8 + shrinkResources)**exit 0**,`AVBox_release.apk` 63.40MB ⇒ 上一条"未在 release/R8 后复验"已消除(本次未新增 `TypeToken` 匿名子类,dex 级 Signature 复验判定无需)。**有意的行为差异 3 条(均非回归)**:①旧值不迁移;②原子性 —— 旧 SP 单 `Editor` 批量提交 vs 新两次独立 `KV.put`,半写时 `exoLoad` 因要求 group/track 同时 ≥0 而回默认音轨(安全降级);③旧 `commit()`(同步)→ MMKV `encode`(同步),阻塞语义等价且少了 `apply` 的异步落盘窗口。**遗留**:真机验证(播放多音轨视频切轨→换集/重进看记忆;一次磁力解析看迅雷初始化)。
+- **审查与补验证(2026-09-15)**:逐点核对 —— ①键映射逐方法对照(含 `save(2 参)` 与 `ijkLoad` 的 `_ijk`+`_track` 组合)一致,仅统一加前缀;②`KV.get(key,-1)` 的 int 拆箱无 null 路径(`KVCodec.decode` 三处返回均兜底 defaultValue),且"未登记键 + 调用侧具体默认值"契约有既有单测覆盖(`KVDecoderTest.primitiveRoundTrip` / `callerConcreteTypeWins_forDynamicKeysOutsideRegistry`);③`javap` 字节码核对 `AudioTrackMemory` = `public final class` + 私有构造 + 4 个静态方法 + 3 个常量,无残留 `prefs`/`instance`/`PREFS_NAME`;④全仓 `memory` 在两播放器 0 残留、`.pro` 0 处引用、`rand_下载标识`/`audio_track_prefs` 仅存于注释与文档;⑤补跑 `:app:assembleRelease`(R8 + shrinkResources)**exit 0**,`AVBox_release.apk` 63.40MB ⇒ 上一条"未在 release/R8 后复验"已消除(本次未新增 `TypeToken` 匿名子类,dex 级 Signature 复验判定无需)。**有意的行为差异 3 条(均非回归)**:①旧值不迁移;②原子性 —— 旧 SP 单 `Editor` 批量提交 vs 新两次独立 `KV.put`,半写时 `exoLoad` 因要求 group/track 同时 ≥0 而回默认音轨(安全降级);③旧 `commit()`(同步)→ MMKV `encode`(同步),阻塞语义等价且少了 `apply` 的异步落盘窗口。**遗留**:真机验证(播放多音轨视频切轨→换集/重进看记忆;一次磁力解析看下载模块初始化)。
 
 ## 本地源导入:改为"直引原文件优先"(2026-09-16,实施 A+A+)
 
@@ -1779,13 +1779,13 @@ P1 最后两组。至此**调度层(会话/取流/解析/嗅探/重试/换线/�
 
 **③ 验证**:每批 `:app:compileDebugKotlin :app:compileDebugJavaWithJavac` 绿;`assembleDebug` + `assembleRelease`(R8/资源收缩)绿;全量单测 **23 suites / 230 例 / 0 失败**;新增审计工具四件套(见 spec 附录 B),卡口 `i18n_gate.py` 实测 ui 层 273 → **39 处**。
 
-**④ 遗留(第 1 步未完成)**:ui 层 39 处/16 文件 + 非 ui 层 138 处/25 文件 = **177 处**(`PlaybackController` 25 / `ComposeVideoController` 19 / `PlayUrlResolver` 15 / `Thunder` 13 …);直播设置面板组名在**解析期**取文案,切语言需重解析直播配置才刷新;通知渠道名 Android 侧建后不改名(改名需删渠道重建);真机未验(语言入口切换、全量重建、播放不中断、AutoSize 字宽自洽);`values/strings.xml` 仍为追加顺序(收尾时按 key 排序)。
+**④ 遗留(第 1 步未完成)**:ui 层 39 处/16 文件 + 非 ui 层 138 处/25 文件 = **177 处**(`PlaybackController` 25 / `ComposeVideoController` 19 / `PlayUrlResolver` 15 / `下载模块` 13 …);直播设置面板组名在**解析期**取文案,切语言需重解析直播配置才刷新;通知渠道名 Android 侧建后不改名(改名需删渠道重建);真机未验(语言入口切换、全量重建、播放不中断、AutoSize 字宽自洽);`values/strings.xml` 仍为追加顺序(收尾时按 key 排序)。
 
 ## i18n 第 1 步(简体)收口:ui / 非 ui 卡口归零(2026-09-22,承接"第二批 273→39")
 
 **本轮完成**
 - ui 层 31 处外置 + 8 处 keep:`PlayerLayers`/`PlayerOverlay`/`PlayerTopBar` 的 contentDescription、`DetailActivity`/`PartitionListActivity`/`ConfigManageActivity`/`VodCardAction` 的 Toast·顶栏·空态、`FilterSheet`(标题带参/清除/确定)、`MusicPlayerState`(enum → `@StringRes labelRes`)、`LivePlayViewModel`/`HomeViewModel`(VM 加 `str()` 走 `LanguageManager.localized`)、`HeroCarousel`(评分带参)、`MusicPlayerActivity`;keep = `LiveEpgParser`(R3 + " --免费使用" 清洗)、`VodCard` 评分正则、`Theme` 的 `@Preview` 名。
-- 非 ui 层 54 处外置 + 39 处 keep:`PlayUrlResolver` 15(14 外置 + 1 keep)、`Thunder` 13(`status` 文案经 `view.showTip`/线路名直显,非日志)、`LocalConfigHelper` 11(3 条拼接合并为带参资源)、`SpiderLoader`/`DanmakuApi` 错误提示、`M3u8PurifyUseCase`(Toast 带参)、`DLNACastManager`、`IjkMediaPlayer`("视轨" 复用 `player_menu_video_track`);keep = R1(`LivePlayerManager`)/R4/R6/R13、日志类(`RSAEncrypt`/`Proxy`/`KV`/`SourceViewModel`)、数据默认值(`DefaultConfig`/`TxtSubscribe`/`ConfigParser` "线路N"/`OkGoHelper` DNS)。
+- 非 ui 层 54 处外置 + 39 处 keep:`PlayUrlResolver` 15(14 外置 + 1 keep)、`下载模块` 13(`status` 文案经 `view.showTip`/线路名直显,非日志)、`LocalConfigHelper` 11(3 条拼接合并为带参资源)、`SpiderLoader`/`DanmakuApi` 错误提示、`M3u8PurifyUseCase`(Toast 带参)、`DLNACastManager`、`IjkMediaPlayer`("视轨" 复用 `player_menu_video_track`);keep = R1(`LivePlayerManager`)/R4/R6/R13、日志类(`RSAEncrypt`/`Proxy`/`KV`/`SourceViewModel`)、数据默认值(`DefaultConfig`/`TxtSubscribe`/`ConfigParser` "线路N"/`OkGoHelper` DNS)。
 - `PlayerUiState.timeStartText/timeEndText` 默认值改空串(控制器已写入资源);`OkGoHelper.dnsHttpsList[0]` 保持 "关闭" 索引锚点,`SettingsPage` 显示侧按 index 0 映射 `common_off`。
 
 **验证**:`assembleDebug` + `testDebugUnitTest`(23 suites/230 例)全绿;`i18n_gate.py` = ui 0 / 非 ui 0;`i18n_check_keys.py` = 420 声明 = 420 引用(无重名/未用/重复值/空白)。
@@ -3104,10 +3104,10 @@ echo-exo-player-error: code=ERROR_CODE_UNSPECIFIED, msg=Unexpected runtime error
 
 ### NPE 审查:崩溃级 3 项修复(2026-09-27,→"根据SKILL.md,审查一下是否有错误遗漏和引入新回归")
 
-- **根因**:三处都是"源侧脏数据 / 结构缺失"经未捕获异常打到无 try 的执行栈上 —— ①`ApiConfig.loadLives` 读 `channels[].name` 用 Gson `get()`(缺键返回 null),而该链路跑在**主线程**且没有任何 try(`LiveProxyLoader.kt:108/131` 两个入口也没有);②`SourceViewModel.checkThunder` 的磁力回调由 Thunder 线程池触发,已飞出 `xml()`/`json()` 的 `catch (Exception)` 保护域;③`VodInfo.reverse()` 直接用 `seriesMap.keySet()`,而 `seriesMap` 只在"这部片有可播线路"时才由 `setVideo` 建立。
-- **改动(4 主源码 + 2 测试)**:①抽 `ConfigParser.parseLiveChannelName` / `parseLiveCatchup` 两个纯函数(脏值归一在这里,便于单测),`loadLives` 改用它并按新口径丢条目;②`checkThunder` 的 `status()` 首集名改为有条件写、`list()` 补下标与 null 元素守卫、同步 `hasThunder` 扫描跳过 null 结构;③`VodInfo.reverse()` 补 `seriesMap == null` 早退(`DetailViewModel.kt:263` 的调用点因此安全;`toggleReverse()` 那条路径本来就有 `seriesMap?.get(...) ?: return`,行为不变)。
+- **根因**:三处都是"源侧脏数据 / 结构缺失"经未捕获异常打到无 try 的执行栈上 —— ①`ApiConfig.loadLives` 读 `channels[].name` 用 Gson `get()`(缺键返回 null),而该链路跑在**主线程**且没有任何 try(`LiveProxyLoader.kt:108/131` 两个入口也没有);②`SourceViewModel.check下载模块` 的磁力回调由 下载模块 线程池触发,已飞出 `xml()`/`json()` 的 `catch (Exception)` 保护域;③`VodInfo.reverse()` 直接用 `seriesMap.keySet()`,而 `seriesMap` 只在"这部片有可播线路"时才由 `setVideo` 建立。
+- **改动(4 主源码 + 2 测试)**:①抽 `ConfigParser.parseLiveChannelName` / `parseLiveCatchup` 两个纯函数(脏值归一在这里,便于单测),`loadLives` 改用它并按新口径丢条目;②`check下载模块` 的 `status()` 首集名改为有条件写、`list()` 补下标与 null 元素守卫、同步 `has下载模块` 扫描跳过 null 结构;③`VodInfo.reverse()` 补 `seriesMap == null` 早退(`DetailViewModel.kt:263` 的调用点因此安全;`toggleReverse()` 那条路径本来就有 `seriesMap?.get(...) ?: return`,行为不变)。
 - **口径修正(本轮自查得出,非首版设计)**:首版把"无名频道"整条丢弃 ⇒ 与既有三处同类口径(`Depot.arrayFrom`/`parseApiCollection` 用地址兜底、`parseSites` 只丢结构性缺失)不一致,且 m3u 源的 `#EXTINF` 无名条目(`TxtSubscribe` 的 name 是用正则尽力截的,可返回空串)本来可播 ⇒ 改为"name 优先,否则用首条非空地址兜底",只丢弃"名字与地址都空"的条目;另补"`urls` 为空/非数组整条跳过"(此前这类频道会在点击时崩在 `LiveChannelItem.getUrl()` 的 `get(0)`)。fongmi 对照:`Channel` 是"留空 + `getName()`/`getCurrent()` 空串兜底",本项目取值链无这层守卫,故不沿用 —— 已记入 §6.12。
-- **验证**:BUILD SUCCESSFUL;`:app:testDebugUnitTest` 42 类 / **355 用例 / 0 失败 / 0 错误**;新增 `ConfigParserTest.parseLiveChannelName_prefersNameThenFirstUrl`、`parseLiveCatchup_shapesAndBadValues` 与 `VodInfoReverseTest`(2 例)。`loadLives`/`checkThunder` 本体无法 JVM 单测(`ApiConfig` 构造函数要 `Looper`、`SourceViewModel` 是 Android ViewModel),这两处是编译 + 读码核对。
+- **验证**:BUILD SUCCESSFUL;`:app:testDebugUnitTest` 42 类 / **355 用例 / 0 失败 / 0 错误**;新增 `ConfigParserTest.parseLiveChannelName_prefersNameThenFirstUrl`、`parseLiveCatchup_shapesAndBadValues` 与 `VodInfoReverseTest`(2 例)。`loadLives`/`check下载模块` 本体无法 JVM 单测(`ApiConfig` 构造函数要 `Looper`、`SourceViewModel` 是 Android ViewModel),这两处是编译 + 读码核对。
 - **未真机走查**,待走查:①喂一份缺 `name`/缺 `urls`/`catchup` 为 null 的直播 JSON 源,加载不崩且无名台显示为地址;②磁力片详情页(解析成功 / 失败两条路径)的首集名与详情数据;③历史里点过"倒序"、源侧已无线路的片子再打开详情。
 - **残留(既有,未改)**:`loadLives` 的 group 级 `get("group")`/`get("channels")` 与 `(JsonObject)` 强转仍无守卫(由 `TxtSubscribe` 的三个分支保证结构,当前不可达);`LiveChannelItem.equals/hashCode` 直接 `channelUrls.get(sourceIndex)`,当前唯一构造点保证非空。
 
@@ -3312,23 +3312,23 @@ echo-exo-player-error: code=ERROR_CODE_UNSPECIFIED, msg=Unexpected runtime error
 | --- | --- | --- |
 | `ui/player/PlayContainer.java` | 277 行匿名 `PlaybackViewBridge`(**字段初始化器**) | → 同文件 `private final class ViewBridge implements PlaybackViewBridge`(3 行包装差) |
 | 同上 `initView()` 内 | 133 行匿名 `VodControlListener`(**方法体内**) | → 同文件 `private final class ControlListener implements VodControlListener` |
-| `util/thunder/Thunder.java` `parse()` 内 | 109 行匿名 `Runnable` | → 同文件 `private static final class ParseTask implements Runnable`;`parse()` 117 → 9 行 |
+| `util/下载模块/下载模块.java` `parse()` 内 | 109 行匿名 `Runnable` | → 同文件 `private static final class ParseTask implements Runnable`;`parse()` 117 → 9 行 |
 | `ui/components/BottomSheet.kt:367` | 154 行内联布局块(`BoxWithConstraints` 整个覆盖层) | → 具名 Composable `SheetSurface(...)`;`SheetOverlay` 226 → 约 90 行 |
 
 **为什么两处 PlayContainer 适配器没有外提到独立文件**(与计划 §3「PlayContainer 1839 → ~1200」的差异):两块的依赖面分别是宿主 **14 个 private 成员**,去重后 **约 20 个** —— 字段 `scheduler/pageHost/mActivity/mContext/mVideoView/mController/exitingPreview/danmuLoadController`,方法 `isAttached/releasePlayerKernel/resetDanmuState/showPreloadReady/hidePreloadReady/trackMemoryKey/clearLyricView/reviveEngineIfReleased/playViaScheduler/reloadDanmuForPlayback/showCastDialog/openDanmuSearchSheet/initSubtitleView`。这是计划 §3 硬地板「每多拆一个文件新增暴露 2–4 个包级成员」的一个数量级,故本阶段只做**同文件具名化**(与兄弟宿主 `PlaybackEngine.HeadlessView` 同款形状),文件边界外提留给「先拆 PlayContainer 自身职责」的后续步骤。
 
-**规模**(只具名、不挪文件,故条数变化很小):`PlayContainer` 1839 → 1843(±类头/类尾)、`Thunder` 496 → 510(类头 + 3 个捕获字段/构造)、`BottomSheet.kt` 539 → 578(新函数签名 + 参数板)。
+**规模**(只具名、不挪文件,故条数变化很小):`PlayContainer` 1839 → 1843(±类头/类尾)、`下载模块` 496 → 510(类头 + 3 个捕获字段/构造)、`BottomSheet.kt` 539 → 578(新函数签名 + 参数板)。
 
 **做法与坑**:
 
 - Java 匿名类 → 同文件内部类是**零行为**改动:方法体逐行不动(缩进常常也不用改),只换包装(字段/调用点改 `new ViewBridge()`、尾部 `};` → `}`、加类头与类尾)。⚠️ 字段初始化器语义靠「实例初始化器先于构造体执行」,换成 `new ViewBridge()` 后与 `scheduler.setViewBridge(viewBridge)` 的先后**不变**。
 - 方法体内的匿名类**不能原地变类声明**,必须移到类级(本次放在该方法之后),整块 dedent 4 空格对齐新层级;判空/防御一行没漏抄。
 - `BottomSheet`:`panelHeightPx`/`panelWidthPx`(`remember` 状态)与拖拽主轴判定**只在那一块里用**,随块一起搬进 `SheetSurface`(父层少两个状态);`dismissWithAnimation()` → 传参 `dismiss`/`dismissThen` 两个闭包。⚠️ **带动作的关闭必须同样走 `dismissThen(action)`** —— 它是语言切换对话框「取消=回滚」这类收尾的唯一通道,漏了就会把用户刚确认的动作反过来。
-- **等价性校验脚本**(每步都跑):旧文件(HEAD 版)逐行去空白后与新版做多重集比对,卡口 = 旧行 0 丢失 + 新文件 0 凭空新增。结果:PlayContainer 只有 2 行包装行变化(其余 1574 行逐字一致);Thunder 只有 `}});` 一行消失(其余 423 行逐字一致);BottomSheet 只有 4 处 `dismissWithAnimation(...)` 调用点与 15 行签名/调用行变化。
+- **等价性校验脚本**(每步都跑):旧文件(HEAD 版)逐行去空白后与新版做多重集比对,卡口 = 旧行 0 丢失 + 新文件 0 凭空新增。结果:PlayContainer 只有 2 行包装行变化(其余 1574 行逐字一致);下载模块 只有 `}});` 一行消失(其余 423 行逐字一致);BottomSheet 只有 4 处 `dismissWithAnimation(...)` 调用点与 15 行签名/调用行变化。
 
 **验证**:`assembleDebug` + `testDebugUnitTest`(44 类 / 364 用例 / 0 失败)BUILD SUCCESSFUL;两个 proguard `.pro` 均无 `PlayContainer` 引用(匿名类改具名类不触碰混淆白名单)。**装机未完成**:`adb install` 在设备侧被拒(`INSTALL_FAILED_ABORTED: User rejected permissions`),待已确认安装。
 
-**待走查**:①播放器容器全链(起播/切源/换线/内核切换/预载提示/弹幕/字幕/投屏);②各弹层(贴底面板、右侧滑出、居中对话框、拖拽下滑关闭、返回键、带动作关闭);③迅雷/磁力/种子解析入口。
+**待走查**:①播放器容器全链(起播/切源/换线/内核切换/预载提示/弹幕/字幕/投屏);②各弹层(贴底面板、右侧滑出、居中对话框、拖拽下滑关闭、返回键、带动作关闭);③下载模块/磁力/种子解析入口。
 
 **本阶段未动**:`player/PlaybackController.java:1075` 的 107 行匿名 `Observer`(按计划归阶段 7/播放服务化 spec);`SpiderLoader`/`SourceViewModel`/`SubtitleViewModel`/`PlayUrlResolver` 四处 65–69 行匿名块(未达 >80 门槛,不在本阶段口径内)。
 ## 文件级重构:阶段 2b「适配器外提」(2026-09-28)
@@ -3365,7 +3365,7 @@ echo-exo-player-error: code=ERROR_CODE_UNSPECIFIED, msg=Unexpected runtime error
 | 不抽 | `ApiConfig.warmOneSource`(预热独占线程 + 单项 10s) | 预热队列语义:超时不打断、项在后台跑完;换一次性线程会变成并发预热,破坏既有独占设计 |
 | 不抽 | `SourceViewModel.getFixUrl`(共享池 `spThreadPool` + 20s) | 共享池有界等待,超时**回退原值**(返回 raw extend),非"新建-等待-销毁"模板 |
 | 不抽 | `SourceViewModel` 推送代理(15s 闩锁) | `CountDownLatch` 等异步 OkGo 回调,不是 `Callable` |
-| 不抽 | `LOG`(落盘)/ `SpiderLoader`(jar 装载、弹幕搜索)/ `PlayUrlResolver`(解析池)/ `Thunder`(解析池)/ `DanmuLoadController`(弹幕解析)/ `ConfigManagePage.kt`(副本清理)/ `PlaybackProgress`、`HistoryWriter`、`LocalConfigHelper` | 长生命周期池或投递即走,全库无 `get(timeout)` |
+| 不抽 | `LOG`(落盘)/ `SpiderLoader`(jar 装载、弹幕搜索)/ `PlayUrlResolver`(解析池)/ `下载模块`(解析池)/ `DanmuLoadController`(弹幕解析)/ `ConfigManagePage.kt`(副本清理)/ `PlaybackProgress`、`HistoryWriter`、`LocalConfigHelper` | 长生命周期池或投递即走,全库无 `get(timeout)` |
 
 **两笔 commit(本地,未推远程)**:
 
@@ -3429,7 +3429,7 @@ echo-exo-player-error: code=ERROR_CODE_UNSPECIFIED, msg=Unexpected runtime error
 | commit | 内容 | 新文件(行数) |
 | --- | --- | --- |
 | `39342b0` | 共享取数支撑 | `SourceHelper.java`(199;线程池/`siteGet`/`absXml`/豆瓣与首页源判定/`getFixUrl`) |
-| `abeed50` | 详情后处理 | `PushDetailResolver.java`(263;`checkPush`/`checkThunder`/`str`) |
+| `abeed50` | 详情后处理 | `PushDetailResolver.java`(263;`checkPush`/`check下载模块`/`str`) |
 | `22c6b3d` | 解析与分投 | `SourceResultParser.java`(242;`xml`/`json`/`sortXml`/`sortJson`/三通道身份分投/两处 XStream ThreadLocal) |
 | `44a95fd` | push:// 解析 | `PushUrlParser.java`(117;标记头摘取、URL 还原、`header` 合并、推送取流结果合成) |
 | `d036b7e` | 列表取数 | `ListLoader.java`(258;`getList` + 首页推荐 `getHomeRecList`) |
@@ -3438,10 +3438,10 @@ echo-exo-player-error: code=ERROR_CODE_UNSPECIFIED, msg=Unexpected runtime error
 | `1beef65` | 搜索取数 | `SearchLoader.java`(156;`getSearch`) |
 | `7b5d66f` | 取流 | `PlayLoader.java`(328;`getPlay`/`getPlayForPreload` + 双通道序号 + 结果组装) |
 | `aa5b132` | ⑫ sortCache 加锁 | 门面 `clearRuntimeCache` 与 `SortLoader` 的 `get`/`put` 统一进 `synchronized (sortCache)` |
-| `c7d88ba` | 清理 | 删掉被切片边界带进 `SourceResultParser` 的重复 `checkThunder` 委托(死代码) |
+| `c7d88ba` | 清理 | 删掉被切片边界带进 `SourceResultParser` 的重复 `check下载模块` 委托(死代码) |
 | `6a52f96` | 收紧可见性 + 注释口径 | `parseMarkedHeaders` 降回 private;两处我写的 javadoc 表述修正 |
 
-**拆解口径(与计划的差异,理由是可达性而非取舍)**:计划的「6 个 sibling」落成 **5 个 Loader + `PushUrlParser`(共 6)＋ 3 个支撑类**。多出的 3 个不是可选拆分:`xml`/`json`/`sortXml`/`sortJson` 的解析-分投层被 5 个 Loader 共用,`push`/迅雷详情后处理被解析层与门面共用,`siteGet`/`absXml`/`getFixUrl` 被 6 处共用 —— 留在门面就得再造一个 ~430 行的门面类。池的归属也做了调整:计划写「两个线程池留在门面、经构造传入 sibling」,实际把**池声明落 `SourceHelper`、门面保留同名公开别名**(`public static final ExecutorService spThreadPool = SourceHelper.SPIDER_POOL;`)—— 构造注入要给 7 个类各加两个参数,而「池留门面 + sibling 引用 `SourceViewModel.spThreadPool`」会造出 sibling → 门面的文件级环。
+**拆解口径(与计划的差异,理由是可达性而非取舍)**:计划的「6 个 sibling」落成 **5 个 Loader + `PushUrlParser`(共 6)＋ 3 个支撑类**。多出的 3 个不是可选拆分:`xml`/`json`/`sortXml`/`sortJson` 的解析-分投层被 5 个 Loader 共用,`push`/下载模块详情后处理被解析层与门面共用,`siteGet`/`absXml`/`getFixUrl` 被 6 处共用 —— 留在门面就得再造一个 ~430 行的门面类。池的归属也做了调整:计划写「两个线程池留在门面、经构造传入 sibling」,实际把**池声明落 `SourceHelper`、门面保留同名公开别名**(`public static final ExecutorService spThreadPool = SourceHelper.SPIDER_POOL;`)—— 构造注入要给 7 个类各加两个参数,而「池留门面 + sibling 引用 `SourceViewModel.spThreadPool`」会造出 sibling → 门面的文件级环。
 
 **API 与暴露面记账**:门面 **0 降级** —— 8 个 public 字段(7 通道 + `spThreadPool`)与 13 个 public 方法逐条保留,`public` 行集比对后唯一差异是 `spThreadPool` 的初始化表达式(池实例同一个);代价转为 sibling 之间的包级成员 **40 个**,暴露面限 `viewmodel` 包(对比阶段 2b 的 23、阶段 4 的 7,这次是最高的,属拆分的固有代价)。`sortCache`/`extendCache`/通道/池仍是门面单点持有,构造传入 sibling,`clearRuntimeCache()` 仍是唯一清理出口。
 
@@ -3451,9 +3451,9 @@ echo-exo-player-error: code=ERROR_CODE_UNSPECIFIED, msg=Unexpected runtime error
 
 **验证**:每笔落地跑 `assembleDebug` + `testDebugUnitTest`(**45 类 / 367 用例 / 0 失败**);每笔用「旧文件 `git show HEAD:` 逐行去空白 + 多重集比对」,并加两道卡口 ——「67 个方法声明的存在性」(旧文件所有声明都能在新文件里找到)与「public 行集比对」。**累计口径下 111 条 missing 行全部可解释**(58 条调用点加 owner 前缀、26 条可见性/static 变化、24 条上述死注释、3 条 `ERR_NETWORK` 前缀),无语句丢失。
 
-**踩坑(两处,都会静默出错)**:① 用脚本按「区域」搬迁时,必须先切片、后改可见性 —— 我曾把**改过的切片**再拿去 `str.replace` 删原文,替换静默失败(Python `replace` 不报错),结果门面里同时留下定义与 `owner.` 前缀调用;② 切片结束标记必须在全库查重 —— `checkThunder` 的委托恰好横跨两个切片边界,被带进 `SourceResultParser` 变成死代码,靠额外的「成员清点」才发现。结论:行替换必须带 `count` 断言,替换后必须做「编译 + public 行集 + 方法存在性」三重核对。
+**踩坑(两处,都会静默出错)**:① 用脚本按「区域」搬迁时,必须先切片、后改可见性 —— 我曾把**改过的切片**再拿去 `str.replace` 删原文,替换静默失败(Python `replace` 不报错),结果门面里同时留下定义与 `owner.` 前缀调用;② 切片结束标记必须在全库查重 —— `check下载模块` 的委托恰好横跨两个切片边界,被带进 `SourceResultParser` 变成死代码,靠额外的「成员清点」才发现。结论:行替换必须带 `count` 断言,替换后必须做「编译 + public 行集 + 方法存在性」三重核对。
 
-**未做/待真机走查**:计划 §8 的阶段 5 判据 —— t4 源首页/详情/起播不卡;换源后 `sortCache` 清理仍生效(加锁改动只有互斥语义,无行为变化);推送链接与磁力(迅雷)两条特殊详情路径不回归。
+**未做/待真机走查**:计划 §8 的阶段 5 判据 —— t4 源首页/详情/起播不卡;换源后 `sortCache` 清理仍生效(加锁改动只有互斥语义,无行为变化);推送链接与磁力(下载模块)两条特殊详情路径不回归。
 
 ## 包级解环:阶段 6「依赖方向专项」(2026-09-28,按 `skill/review/refactor-plan-20260928.md`)
 
@@ -5066,7 +5066,7 @@ new-instance v2, Lorg/json/JSONArray;  invoke-direct {v2, v1}      # new JSONArr
 **审查修复轮（同日，两轮只读子代理审查 + 逐条复核）**
 
 - **中级（本次引入）：清除点漏项** —— 投屏收摊后，不经过 `setData` / `playCurrent` / `ensurePlaybackActive` 的 4 类"用户显式起播"入口会被 `goPlayUrl` 门禁**静默**吞掉：① 详情页画质胶囊（`DetailPlaybackPolicy.Quality` → `DetailViewModel.onQualityClick` → `PlayContainer.selectQuality` → `MusicSessionDelegate.selectQuality` → `host.playUrl`/`initParse`）；② 全屏「刷新 / 换内核 / 换软解」（`PlayerActionsDelegate.onRefreshClicked` → `replay(false)` → `replayCurrentAddress` → 直调 `goPlayUrl`）；③ 上一集 / 下一集（控制栏与通知栏 NEXT/PREV，`playNext/playPrevious` → `playViaScheduler` → `play()`）；④ 换解析接口（`changeParse` → `doParse`）。修法 = 4 处一行清除：`PlaybackController.play()`、`PlaybackController.selectQuality()`（**先清再转调**：净化关时它同步走到 `goPlayUrl`，后置清除来不及）、`PlaybackController.doParse()`、`PlayContainer.replayCurrentAddress()`。**清点依据**：穷举核对 `autoRetry` / `tryNextLine` / `tryNextLineIfEnabled` / `retryWithFreshResolve` / `trySoftDecodeFallback` / `retryAfterStartedError` 的全部调用方，自动路径能到达 `play()` 的只有那 5 个已拦入口的下游，故 `play()` 可安全当"用户起播"入口（`ensurePlaybackActive` 顺带统一走容器转发方法）。走查前未清标记时，画质胶囊 / 全屏刷新 / 上下集 / 换解析都是"点了没反应"，属用户可见回归。
-- **低（本次引入，登记不修）**：① 三处 drop 分支附带 `stopMusicSessionForFailedPlayback()` + 超时提示 —— M3U8 净化分支（`PlaybackStarter.playUrl` 先武装 20s、净化交付不经 `goPlayUrl`）在净化不交付时 20s 后可达，当前路径下无对象可撤会话，仅一次多余提示；② `castAborted` 非 volatile（写点全主线程，读点可来自嗅探 / Thunder 回调线程，无实测判据；与既有 `castPrepareOnly` 同风格）；③ `clearCastAbort()` 不作废在途净化交付（有 `PlayLoader` seq 与 jx/嗅探 gen 兜底，且被接受地址通常正是用户当下要播的内容）；④ `PlaybackFetch.handlePlayResult` 不在拦截面（收摊后预载通道的一次交付仍会执行 `setWebPlayUrl(null)` 等副作用，起播本身已拦）；⑤ 新增不变量"用户起播入口必须先清 abort"无静态判据，已改写进 §4-20 必走清单替代。
+- **低（本次引入，登记不修）**：① 三处 drop 分支附带 `stopMusicSessionForFailedPlayback()` + 超时提示 —— M3U8 净化分支（`PlaybackStarter.playUrl` 先武装 20s、净化交付不经 `goPlayUrl`）在净化不交付时 20s 后可达，当前路径下无对象可撤会话，仅一次多余提示；② `castAborted` 非 volatile（写点全主线程，读点可来自嗅探 / 下载模块 回调线程，无实测判据；与既有 `castPrepareOnly` 同风格）；③ `clearCastAbort()` 不作废在途净化交付（有 `PlayLoader` seq 与 jx/嗅探 gen 兜底，且被接受地址通常正是用户当下要播的内容）；④ `PlaybackFetch.handlePlayResult` 不在拦截面（收摊后预载通道的一次交付仍会执行 `setWebPlayUrl(null)` 等副作用，起播本身已拦）；⑤ 新增不变量"用户起播入口必须先清 abort"无静态判据，已改写进 §4-20 必走清单替代。
 - **文档同步**：§3.9 重写（清除点清单 + 五入口"统一不重试（提示由调用方决定）"措辞改正 + 日志前缀写全 + 说明 `abort set` 在投屏成功路径同样打印，判"放弃"要看有没有 `keep playback off`）；§4-20 补"放弃投屏后逐个走一遍用户起播入口"必走清单；§8 补修订行；`LOG.FILE_LOG_PREFIXES` 再补 `echo-resolvePlayUrl` / `echo-playM3u8`（归因侧证据，原判据只依赖 `echo-cast` / `echo-goPlayUrl` / `echo-autoRetry`）。
 - **验证**：`:app:assembleDebug` 绿 + `:app:testDebugUnitTest` **800 例 / 0 失败**（本修复轮未加单测：清除点是调用点，纯 JVM 不可覆盖，判据交给 §4-20 真机走查）。
 

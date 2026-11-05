@@ -84,16 +84,16 @@ source: 2026-10-25 用户指令「先加载项目规范，然后开始 s0，没�
 
 ## 6.1 改动（2 文件 3 行）
 
-`PlayerSwitchUseCase.stopOther()` 里的 `Thunder.stop(false)` 是 `usecase` 包对 `sourcedata` 的唯一依赖，且 `stopOther()` **全仓只有一个调用方** `VideoPlayerController.stopOther()`（`ui/player` 经 `PlayContainer.mController` 进来）。
+`PlayerSwitchUseCase.stopOther()` 里的 `下载模块.stop(false)` 是 `usecase` 包对 `sourcedata` 的唯一依赖，且 `stopOther()` **全仓只有一个调用方** `VideoPlayerController.stopOther()`（`ui/player` 经 `PlayContainer.mController` 进来）。
 
 | 文件 | 改动 |
 | --- | --- |
-| `VideoPlayerController.kt` | `stopOther()` 里先 `Thunder.stop(false)` 再调 `PlayerSwitchUseCase.stopOther()`；新增 `sourcedata.Thunder` import |
-| `PlayerSwitchUseCase.kt` | 删 `Thunder.stop(false)` 与 `sourcedata.Thunder` import，`stopOther()` 只留 `setDashData(null)` |
+| `VideoPlayerController.kt` | `stopOther()` 里先 `下载模块.stop(false)` 再调 `PlayerSwitchUseCase.stopOther()`；新增 `sourcedata.下载模块` import |
+| `PlayerSwitchUseCase.kt` | 删 `下载模块.stop(false)` 与 `sourcedata.下载模块` import，`stopOther()` 只留 `setDashData(null)` |
 
 **与方案 §2.4 的差异**：方案写"经构造注入的回调/接口上提"。实际 `PlayerSwitchUseCase` 是 Kotlin `object` + `@JvmStatic`，**没有构造器**，回调只能是可赋值的全局字段（还要解决谁在什么时候赋值、未赋值时静默 no-op）—— 比现在的写法多两层间接、零收益。既然 `stopOther()` 只有一个调用方，直接把调用上提到那个调用点即可，等价且更短。
 
-代价：新增 `player.controller → sourcedata` 一条包对（`Thunder` 是 data 层，controller 是覆盖层）。判定可接受：`player → sourcedata`、`ui.activity → sourcedata`、`ui.player → sourcedata` 都已存在，该方向无环；净边数不变（−1 旧边 +1 新边）。
+代价：新增 `player.controller → sourcedata` 一条包对（`下载模块` 是 data 层，controller 是覆盖层）。判定可接受：`player → sourcedata`、`ui.activity → sourcedata`、`ui.player → sourcedata` 都已存在，该方向无环；净边数不变（−1 旧边 +1 新边）。
 
 ## 6.2 验证
 
@@ -209,7 +209,7 @@ player → sourcedata           (PlaybackController.kt import SourceHelper/Sourc
 
 - **S0**：纯搬移（文件内容只改 `package`）；34 文件引用改写，14 个 HEAD 干净文件逐一比对等于预期变换；`core` 出边归零。
 - **刀③**：`Context?` 可空性与原 `Application?` 一致；`:206` 的 `if (null) ""` 兜底原样保留，无行为变更。
-- **刀⑤**：`PlayerControlApi` 全仓**唯一实现**就是 `VideoPlayerController`，调用顺序（先停迅雷、再清 dashData）与调用时机不变。
+- **刀⑤**：`PlayerControlApi` 全仓**唯一实现**就是 `VideoPlayerController`，调用顺序（先停下载模块、再清 dashData）与调用时机不变。
 - **刀②**：8 个消费点全为 `?.`，无 `!!`；`PlaybackService` 的 engine 创建点仅 `:499`/`:551` 两处且都紧跟 `installDataPorts()`，新不变量 `ports != null ⟺ engine != null` 成立。
 - **刀①**：`server` 出边只剩底座方向；三条读边全部 `?.` 降级，与方案 A 口径一致。
 
@@ -241,7 +241,7 @@ pkg_cycles.py                     : 互导对 4、环簇 4（全 2 包环）
 
 **本轮其余检查**（无新发现）：
 
-- `PlayerControlApi` 唯一实现确认；`PlaybackEngine.stopOtherPlayers()` 是空实现，不存在"另一条路径漏掉 `Thunder.stop`"；
+- `PlayerControlApi` 唯一实现确认；`PlaybackEngine.stopOtherPlayers()` 是空实现，不存在"另一条路径漏掉 `下载模块.stop`"；
 - `App.getDashData()` 声明为 `String?`、初值 null，与 `ServerQueryPorts.ports?.dashData()` 的 null 语义一致，`/dash/` 空数据路径行为未变；
 - `catvod.Proxy.set` 原本就在 `try` 内、与 `server.start()` 同段，异常语义未变（`IOException` 仍走端口自增重试）；
 - `server` 包 import 与行内 FQN 双口径复查：对 `api/base/player/sourcedata/catvod` 仍为零出边；

@@ -30,7 +30,6 @@ import com.github.avbox.osc.player.state.VideoSizeGate
 import com.github.avbox.osc.player.usecase.M3u8PurifyUseCase
 import com.github.avbox.osc.player.usecase.PlayerSwitchUseCase
 import com.github.avbox.osc.player.usecase.WebParseUseCase
-import com.github.avbox.osc.sourcedata.Thunder
 import com.github.avbox.osc.subtitle.widget.SimpleSubtitleView
 import com.github.avbox.osc.util.DanmuSettingsState
 import com.github.avbox.osc.util.AppLog
@@ -587,7 +586,6 @@ class VideoPlayerController(
     override fun switchPlayer(): Boolean = PlayerSwitchUseCase.switchPlayer()
 
     override fun stopOther() {
-        Thunder.stop(false)
         PlayerSwitchUseCase.stopOther()
     }
 

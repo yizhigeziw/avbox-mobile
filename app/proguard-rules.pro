@@ -101,7 +101,6 @@
     <init>(java.lang.Throwable);
 }
 
--keep class com.xunlei.downloadlib.** {*;}
 -keep class com.whl.quickjs.** {*;}
 
 -dontwarn androidx.media3.**

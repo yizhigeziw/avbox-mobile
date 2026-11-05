@@ -135,7 +135,7 @@ class SourceResultParser(
             } else if (result != null) {
                 if (result === detailResult) {
                     data = pushDetailResolver.checkPush(data)
-                    pushDetailResolver.checkThunder(data, 0)
+                    detailResult.postValue(data)
                 } else {
                     postSearchResult(result, data)
                 }
@@ -196,7 +196,7 @@ class SourceResultParser(
             } else if (result != null) {
                 if (result === detailResult) {
                     data = pushDetailResolver.checkPush(data)
-                    pushDetailResolver.checkThunder(data, 0)
+                    detailResult.postValue(data)
                 } else {
                     postSearchResult(result, data)
                 }

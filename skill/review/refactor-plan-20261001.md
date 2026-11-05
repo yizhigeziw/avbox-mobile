@@ -163,7 +163,7 @@ source: 2026-10-01 提名的四问题审查：① 双范式并存（LiveData/Sta
   4. `PartitionListViewModel`:同样处理 `actionViewModel.actionResult` 与匿名 loader（`loaderScope` 随 `onCleared` → `release()` 取消）。
   5. `SearchViewModel`:无需改动（见上,它本来就没有手动配对）。
 - **`rebindDetailSource` → 单实例 + 代次（本阶段核心,已落地）**：
-  - `AbsXml` 新增 `detailToken`（非详情通道恒 null）;`SourceViewModel.getDetail(..., Integer requestToken)` → `DetailLoader.getDetail(..., requestToken)` 在**每一条出口**都盖章(爬虫/接口/解析失败/空详情/push 合成);`SourceResultParser.json/xml` 新增带 `detailToken` 的重载,并在解析成功后赋值。`checkPush`/`checkThunder` 原地改写同一个对象,故盖章不会被后处理冲掉。
+  - `AbsXml` 新增 `detailToken`（非详情通道恒 null）;`SourceViewModel.getDetail(..., Integer requestToken)` → `DetailLoader.getDetail(..., requestToken)` 在**每一条出口**都盖章(爬虫/接口/解析失败/空详情/push 合成);`SourceResultParser.json/xml` 新增带 `detailToken` 的重载,并在解析成功后赋值。`checkPush`/`check下载模块` 原地改写同一个对象,故盖章不会被后处理冲掉。
   - `DetailViewModel.detailRequestToken`:**只在"发起新的内容请求"时自增**（换片/换源/重试,即 `loadDetail`）;**fallback 换候选站不自增**（同一代内多候选,谁先回都算当前,与旧"换实例只在换片/换源时发生"一致）。
   - 判据抽成纯函数 `DetailResponseGuard.isCurrent(requestToken, responseToken)`(null = 无代次信息,不采信),单测 6 例锁行为 —— 含**换源但同 vodId** 那一格:源 A/源 B 命中同一部片时 `sourceKey` 会变而 `vodId` 可能相同,内容比对分不出来,只有代次能分（这正是"换实例"的技术替代）。
 - **播放层的 2 处为何不在本阶段收口（登记理由）**:`PlaybackController`(Java,自持 `SourceViewModel`)与 `PreloadCoordinator`(Java,构造器里挂 `preloadResult`)都不是页面 VM,`observeForever` 是它们与门面之间的自然写法;两者**都已有配对清理**(`releaseFetch()` / `destroy()`),不存在 V4 要消的"漏配对即泄漏"形态。V4 若把它们也搬成 flow,就要在 `player` 模块引入协程作用域与生命周期,收益不匹配。归 **V5**(`PlaybackController` 拆簇时一并具名化 + 补配对清理检查),`PreloadCoordinator` 同批评估。
